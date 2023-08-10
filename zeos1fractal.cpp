@@ -15,10 +15,6 @@ void zeos1fractal::init(const uint64_t& first_event_block_height)
         STATE_IDLE,
         0,
         first_event_block_height,
-        map<name, uint64_t>({
-            {"approver"_n, 56},
-            {"delegate"_n, 111},
-        }),
         5400,   // 45 min
         1800,   // 15 min
     }, _self);
@@ -58,7 +54,7 @@ void zeos1fractal::changestate()
             g.event_count++;
 
             // TODO: 
-            // evaluate event and distribute REZPECT
+            // evaluate rankings table and distribute REZPECT
             // reset event tables
         }
         break;
@@ -116,4 +112,55 @@ void zeos1fractal::submitranks(const name& user, const uint64_t& group_id, const
     require_auth(user);
 
     // TODO
+}
+
+// notification handler for FT deposits
+void zeos1fractal::assetin(name from, name to, asset quantity, string memo)
+{
+    // TODO: which token contracts are allowed? (make sure scam tokens aren't able to block a particular token symbol)
+    // actually having a table for the symbol -> contract mapping would begood to have. I would use the same table (a 
+    // "valid symbol" table) for the zeos protocol & DEX as well (include only tokens based on what the community whitelists)
+
+    name first_receiver = get_first_receiver();
+    if(first_receiver == "atomicassets"_n)
+    {
+        return;
+    }
+    if(to == _self)
+    {
+        if(memo == "treasury")
+        {
+            treasury_t treasury(_self, _self.value);
+            auto asset = treasury.find(quantity.symbol.raw());
+            if(asset == treasury.end())
+            {
+                treasury.emplace(_self, [&](auto& row){
+                    row.quantity = extended_asset(quantity, first_receiver);
+                });
+            }
+            else
+            {
+                treasury.modify(asset, _self, [&](auto& row){
+                    row.quantity += extended_asset(quantity, first_receiver);
+                });
+            }
+        }
+        else // all transfers other than type 'treasury' go into 'rewards'
+        {
+            rewards_t rewards(_self, _self.value);
+            auto asset = rewards.find(quantity.symbol.raw());
+            if(asset == rewards.end())
+            {
+                rewards.emplace(_self, [&](auto& row){
+                    row.quantity = extended_asset(quantity, first_receiver);
+                });
+            }
+            else
+            {
+                rewards.modify(asset, _self, [&](auto& row){
+                    row.quantity += extended_asset(quantity, first_receiver);
+                });
+            }
+        }
+    }
 }
