@@ -31,24 +31,24 @@ void zeos1fractal::changestate()
     {
         case STATE_IDLE:
         {
-            check(cbn >= (g.next_event_block_height - g.registration_duration), "too early to move into REGISTRATION state");
-            g.state = STATE_REGISTRATION;
+            check(cbn >= (g.next_event_block_height - g.participate_duration), "too early to move into REGISTRATION state");
+            g.state = STATE_PARTICIPATE;
         }
         break;
             
-        case STATE_REGISTRATION:
+        case STATE_PARTICIPATE:
         {
-            check(cbn >= g.next_event_block_height, "too early to move into BREAKOUT ROOMS state");
-            g.state = STATE_BREAKOUT_ROOMS;
+            check(cbn >= g.next_event_block_height, "too early to move into ROOMS state");
+            g.state = STATE_ROOMS;
 
             // TODO:
             // randomize users in "participants" into groups for breakout rooms
         }
         break;
             
-        case STATE_BREAKOUT_ROOMS:
+        case STATE_ROOMS:
         {
-            check(cbn >= (g.next_event_block_height + g.breakout_rooms_duration), "too early to move into IDLE state");
+            check(cbn >= (g.next_event_block_height + g.rooms_duration), "too early to move into IDLE state");
             g.state = STATE_IDLE;
             g.next_event_block_height = g.next_event_block_height + 1209600; // add one week of blocks
             g.event_count++;
@@ -72,7 +72,7 @@ void zeos1fractal::setevent(const uint64_t& block_height)
     // TODO
 }
 
-void zeos1fractal::apply(const name& user, const string& why, const string& about, const vector<tuple<name, string>>& links)
+void zeos1fractal::signup(const name& user, const string& why, const string& about, const vector<tuple<name, string>>& links)
 {
     require_auth(user);
 
@@ -91,7 +91,7 @@ void zeos1fractal::participate(const name& user)
     require_auth(user);
     check(_global.exists(), "contract not initialized");
     auto g = _global.get();
-    check(g.state == STATE_REGISTRATION, "can only join during REGISTRATION phase");
+    check(g.state == STATE_PARTICIPATE, "can only join during PARTICIPATE phase");
     
     members_t members(_self, _self.value);
     auto usr = members.find(user.value);
@@ -112,6 +112,11 @@ void zeos1fractal::submitranks(const name& user, const uint64_t& group_id, const
     require_auth(user);
 
     // TODO
+}
+
+void zeos1fractal::createauth(const name& user, const uint64_t& event, const uint64_t& room)
+{
+    check(false, "action not executable");
 }
 
 // notification handler for FT deposits

@@ -10,8 +10,8 @@ using namespace eosio;
 using namespace std;
 
 #define STATE_IDLE 0
-#define STATE_REGISTRATION 1
-#define STATE_BREAKOUT_ROOMS 2
+#define STATE_PARTICIPATE 1
+#define STATE_ROOMS 2
 
 CONTRACT zeos1fractal : public contract
 {
@@ -22,8 +22,8 @@ CONTRACT zeos1fractal : public contract
         uint64_t state;
         uint64_t event_count;
         uint64_t next_event_block_height;
-        uint64_t registration_duration;
-        uint64_t breakout_rooms_duration;
+        uint64_t participate_duration;
+        uint64_t rooms_duration;
     };
     singleton<"global"_n, global> _global;
 
@@ -49,7 +49,7 @@ CONTRACT zeos1fractal : public contract
     };
     typedef multi_index<"abilities"_n, ability> abilities_t;
 
-    // event table: to register users for the upcoming event during the REGISTRATION phase
+    // event table: to register users for the upcoming event during the PARTICIPATE phase
     TABLE participant
     {
         name user;
@@ -58,25 +58,25 @@ CONTRACT zeos1fractal : public contract
     };
     typedef multi_index<"participants"_n, participant> participants_t;
 
-    // event table: to randomize participants for the BREAKOUT_ROOMS phase
-    TABLE group
+    // event table: to randomize participants for the ROOMS phase
+    TABLE room
     {
         uint64_t id;
         vector<name> users;
 
         uint64_t primary_key() const { return id; }
     };
-    typedef multi_index<"groups"_n, group> groups_t;
+    typedef multi_index<"rooms"_n, room> rooms_t;
 
-    // event table: to gather the rankings of all participants of all groups during the BREAKOUT_ROOMS phase
+    // event table: to gather the rankings of all participants of all groups during the ROOMS phase
     TABLE ranking
     {
         name user;
-        uint64_t group_id;
+        uint64_t room;
         vector<name> rankings;
 
         uint64_t primary_key() const { return user.value; }
-        uint64_t by_secondary() const { return group_id; }
+        uint64_t by_secondary() const { return room; }
     };
     typedef multi_index<"rankings"_n, ranking> rankings_t;
 
@@ -103,10 +103,11 @@ CONTRACT zeos1fractal : public contract
     ACTION init(const uint64_t& first_event_block_height);
     ACTION changestate();
     ACTION setevent(const uint64_t& block_height);
-    ACTION apply(const name& user, const string& why, const string& about, const vector<tuple<name, string>>& links);
+    ACTION signup(const name& user, const string& why, const string& about, const vector<tuple<name, string>>& links);
     ACTION approve(const name& user, const name& user_to_approve);
     ACTION participate(const name& user);
     ACTION submitranks(const name& user, const uint64_t& group_id, const vector<name> &rankings);
+    ACTION createauth(const name& user, const uint64_t& event, const uint64_t& room);
 
     [[eosio::on_notify("*::transfer")]]
     void assetin(name from, name to, asset quantity, string memo);
