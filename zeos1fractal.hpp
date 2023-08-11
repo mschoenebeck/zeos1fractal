@@ -107,7 +107,7 @@ CONTRACT zeos1fractal : public contract
     ACTION approve(const name& user, const name& user_to_approve);
     ACTION participate(const name& user);
     ACTION submitranks(const name& user, const uint64_t& group_id, const vector<name> &rankings);
-    ACTION createauth(const name& user, const uint64_t& event, const uint64_t& room);
+    ACTION authenticate(const name& user, const uint64_t& event, const uint64_t& room);
 
     [[eosio::on_notify("*::transfer")]]
     void assetin(name from, name to, asset quantity, string memo);

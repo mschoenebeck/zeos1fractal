@@ -114,7 +114,7 @@ void zeos1fractal::submitranks(const name& user, const uint64_t& group_id, const
     // TODO
 }
 
-void zeos1fractal::createauth(const name& user, const uint64_t& event, const uint64_t& room)
+void zeos1fractal::authenticate(const name& user, const uint64_t& event, const uint64_t& room)
 {
     check(false, "action not executable");
 }
