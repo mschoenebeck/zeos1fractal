@@ -129,13 +129,17 @@ public:
     void assetin(name from, name to, asset quantity, string memo);
 
 private:
-    template<typename T> void my_swap(T& t1, T& t2)
+
+    // simple generic swap
+    template<typename T>
+    void my_swap(T& t1, T& t2)
     {
         T tmp = move(t1);
         t1 = move(t2);
         t2 = move(tmp);
     }
 
+    // an adaption of: https://cplusplus.com/reference/algorithm/shuffle/
     template<class RandomAccessIterator>
     void my_shuffle(RandomAccessIterator first, RandomAccessIterator last)
     {
