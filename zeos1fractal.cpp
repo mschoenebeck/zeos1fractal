@@ -149,3 +149,15 @@ void zeos1fractal::assetin(name from, name to, asset quantity, string memo) {
     }
   }
 }
+
+void zeos1fractal::testshuffle()
+{
+    vector<uint64_t> v = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    my_shuffle(v.begin(), v.end());
+    string s = "";
+    for(auto e : v)
+    {
+        s += to_string(e) + ", ";
+    }
+    check(0, s);
+}

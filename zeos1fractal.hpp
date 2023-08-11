@@ -9,13 +9,28 @@
 using namespace eosio;
 using namespace std;
 
+CONTRACT r4ndomnumb3r : public contract
+{
+public:
+    using contract::contract;
+
+    ACTION generate();
+    using generate_action = action_wrapper<"generate"_n, &r4ndomnumb3r::generate>;
+};
+
 #define STATE_IDLE 0
 #define STATE_PARTICIPATE 1
 #define STATE_ROOMS 2
 
 CONTRACT zeos1fractal : public contract
 {
-    public:
+public:
+
+    TABLE rng
+    {
+        checksum256 value;
+    };
+    using rng_t = singleton<"rng"_n, rng>;
 
     TABLE global
     {
@@ -108,7 +123,30 @@ CONTRACT zeos1fractal : public contract
     ACTION participate(const name& user);
     ACTION submitranks(const name& user, const uint64_t& group_id, const vector<name> &rankings);
     ACTION authenticate(const name& user, const uint64_t& event, const uint64_t& room);
+    ACTION testshuffle();
 
     [[eosio::on_notify("*::transfer")]]
     void assetin(name from, name to, asset quantity, string memo);
+
+private:
+    template<typename T> void my_swap(T& t1, T& t2)
+    {
+        T tmp = move(t1);
+        t1 = move(t2);
+        t2 = move(tmp);
+    }
+
+    template<class RandomAccessIterator>
+    void my_shuffle(RandomAccessIterator first, RandomAccessIterator last)
+    {
+        for (auto i=(last-first)-1; i>0; --i)
+        {
+            r4ndomnumb3r::generate_action r4ndomnumb3r_generate("r4ndomnumb3r"_n, {_self, "active"_n});
+            r4ndomnumb3r_generate.send();
+            rng_t rndnmbr("r4ndomnumb3r"_n, "r4ndomnumb3r"_n.value);
+            checksum256 x = rndnmbr.get().value;
+            uint64_t r = *reinterpret_cast<uint64_t*>(&x) % (i+1);
+            my_swap(first[i], first[r]);
+        }
+    }
 };
