@@ -22,6 +22,8 @@ public:
 #define STATE_PARTICIPATE 1
 #define STATE_ROOMS 2
 
+#define NUM_APPROVALS_REQUIRED 5
+
 CONTRACT zeos1fractal : public contract
 {
 public:

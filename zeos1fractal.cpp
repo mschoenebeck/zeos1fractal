@@ -104,8 +104,39 @@ void zeos1fractal::approve(
 )
 {
     require_auth(user);
+    check(_global.exists(), "contract not initialized");
 
-    // TODO
+    members_t members(_self, _self.value);
+    auto usr_to_appr = members.find(user_to_approve.value);
+    check(usr_to_appr != members.end(), "user_to_approve doesn't exist");
+
+    if(user == _self)
+    {
+        // the fractal can approve anybody instantly
+        members.modify(usr_to_appr, _self, [&](auto &row) {
+            row.approvers.push_back(_self);
+            row.is_approved = true;
+        });
+    }
+    else if(user == user_to_approve)
+    {
+        // after enough approvals have been received, each user eventually has to approve himself
+        check(usr_to_appr->approvers.size() >= NUM_APPROVALS_REQUIRED, "not enough approvals");
+        members.modify(usr_to_appr, _self, [&](auto &row) {
+            row.is_approved = true;
+        });
+    }
+    else
+    {
+        // any authorized member can approve new members
+        auto usr = members.find(user.value);
+        check(usr != members.end(), "user doesn't exist");
+        check(usr->is_approved, "user is not approved");
+        // TODO: check if user has 'ability' to approve
+        members.modify(usr_to_appr, _self, [&](auto &row) {
+            row.approvers.push_back(user);
+        });
+    }
 }
 
 void zeos1fractal::participate(const name &user)
