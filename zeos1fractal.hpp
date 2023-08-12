@@ -118,10 +118,10 @@ public:
     ACTION init(const uint64_t& first_event_block_height);
     ACTION changestate();
     ACTION setevent(const uint64_t& block_height);
-    ACTION signup(const name& user, const string& why, const string& about, const vector<tuple<name, string>>& links);
+    ACTION signup(const name& user, const string& why, const string& about, const map<name, string>& links);
     ACTION approve(const name& user, const name& user_to_approve);
     ACTION participate(const name& user);
-    ACTION submitranks(const name& user, const uint64_t& group_id, const vector<name> &rankings);
+    ACTION submitranks(const name& user, const uint64_t& group_id, const vector<name>& rankings);
     ACTION authenticate(const name& user, const uint64_t& event, const uint64_t& room);
     ACTION testshuffle();
 

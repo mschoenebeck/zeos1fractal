@@ -73,15 +73,29 @@ void zeos1fractal::setevent(const uint64_t &block_height)
 }
 
 void zeos1fractal::signup(
-    const name &user,
-    const string &why,
-    const string &about,
-    const vector<tuple<name, string>> &links
+    const name& user,
+    const string& why,
+    const string& about,
+    const map<name, string>& links
 )
 {
     require_auth(user);
+    check(_global.exists(), "contract not initialized");
 
-    // TODO
+    members_t members(_self, _self.value);
+    auto usr = members.find(user.value);
+    check(usr == members.end(), "user already signed up");
+
+    members.emplace(user, [&](auto &row) {
+        row.user = user;
+        row.is_approved = false;
+        row.is_banned = false;
+        row.approvers = vector<name>();
+        row.respect = 0;
+        row.profile_why = why;
+        row.profile_about = about;
+        row.profile_links = links;
+    });
 }
 
 void zeos1fractal::approve(
