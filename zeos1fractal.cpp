@@ -48,7 +48,8 @@ void zeos1fractal::changestate()
         }
         break;
 
-        case STATE_ROOMS: {
+        case STATE_ROOMS:
+        {
             check(cbn >= (g.next_event_block_height + g.rooms_duration), "too early to move into IDLE state");
             g.state = STATE_IDLE;
             g.next_event_block_height = g.next_event_block_height + 1209600; // add one week of blocks
@@ -64,12 +65,15 @@ void zeos1fractal::changestate()
     _global.set(g, _self);
 }
 
-void zeos1fractal::setevent(const uint64_t &block_height)
+void zeos1fractal::setevent(const uint64_t& block_height)
 {
     require_auth(_self);
     check(_global.exists(), "contract not initialized");
-
-    // TODO
+    check(block_height > current_block_number(), "must be in the future");
+    auto g = _global.get();
+    check(g.state == STATE_IDLE, "only in IDLE state");
+    g.next_event_block_height = block_height;
+    _global.set(g, _self);
 }
 
 void zeos1fractal::signup(
@@ -81,7 +85,6 @@ void zeos1fractal::signup(
 {
     require_auth(user);
     check(_global.exists(), "contract not initialized");
-
     members_t members(_self, _self.value);
     auto usr = members.find(user.value);
     check(usr == members.end(), "user already signed up");
@@ -105,7 +108,6 @@ void zeos1fractal::approve(
 {
     require_auth(user);
     check(_global.exists(), "contract not initialized");
-
     members_t members(_self, _self.value);
     auto usr_to_appr = members.find(user_to_approve.value);
     check(usr_to_appr != members.end(), "user_to_approve doesn't exist");
