@@ -1,21 +1,3 @@
-
-/*
-
-
-Test for automvalid(); function.
-
-Function checks whether there is consensus in a group.
-Vector of vectors is created from all the groups that have consensus.
-
-To test:
-1. trigger populate action
-2. trigger automvalid action
-3. see the results in the results table (scope _self)
-
-
-
-*/
-
 #include <eosio/eosio.hpp>
 #include <eosio/singleton.hpp>
 
@@ -66,86 +48,54 @@ public:
   // ... (other tables and actions if needed)
 };
 
-void zeosfractest::automvalid() {
-  // Access the global singleton table to retrieve the current event number
-  /*
-  global global_singleton(_self, _self.value);
-  check(global_singleton.exists(), "Global table does not exist.");
-  auto global_data = global_singleton.get();
-*/
-  // TESTTT
-  countdata_t countdata_table(_self,
-                              _self.value); // Declare the table to save counts
 
-  // Use the `rankings` table with the current event number as the scope, so
-  // instead of 1 should be event_count
+
+void zeosfractest::automvalid() {
+  // Access the rankings table
   rankings_t rankings_table(_self, 1);
 
-  // Determine the number of groups by iterating over the rankings table
-  // and finding the highest room number.
-  uint64_t group_count = 0;
-  for (auto itr = rankings_table.begin(); itr != rankings_table.end(); ++itr) {
-    if (itr->room > group_count) {
-      group_count = itr->room;
-    }
-  }
+  // Use a secondary index to sort by room
+  auto idx = rankings_table.get_index<"bysecondary"_n>();
 
-  // This will hold the consensus rankings for all groups
+  // Store results of consensus rankings
   std::vector<std::vector<eosio::name>> allRankings;
 
-  // Iterate over each group
-  for (uint64_t group_num = 1; group_num <= group_count; ++group_num) {
-    auto idx = rankings_table.get_index<"bysecondary"_n>();
-    auto itr_start = idx.lower_bound(group_num);
-    auto itr_end = idx.upper_bound(group_num);
+  // Iterate through rankings table by group, using the secondary index
+  auto itr = idx.begin();
+  while (itr != idx.end()) {
+    uint64_t current_group = itr->room;
 
-    // Collect all rankings submitted by group members
+    // Store all submissions for the current group
     std::vector<std::vector<eosio::name>> all_submissions;
-    for (auto itr = itr_start; itr != itr_end; ++itr) {
+
+    // Aggregate all submissions for the current group
+    while (itr != idx.end() && itr->room == current_group) {
       all_submissions.push_back(itr->rankings);
-      // check(false, itr->rankings[0].value);
+      ++itr;
     }
-    // Check consensus for this group
+
     std::vector<eosio::name> consensus_ranking;
     bool has_consensus = true;
     size_t total_submissions = all_submissions.size();
 
-    // Compare rankings across submissions
+    // Check consensus for this group
     for (size_t i = 0; i < all_submissions[0].size(); ++i) {
       std::map<eosio::name, uint64_t> counts;
-
-      // Count occurrences of each account name in the current rank
-      for (const auto &submission : all_submissions) {
-        counts[submission[i]]++;
-      }
-
-      // Save counts to the countdata table TESSSTTTTT
-      for (const auto &entry : counts) {
-        eosio::name account_name = entry.first;
-        uint64_t occurrence_count = entry.second;
-
-        countdata_table.emplace(_self, [&](auto &c) {
-          c.id = countdata_table.available_primary_key();
-          c.room = group_num;
-          c.rank = i;
-          c.account = account_name;
-          c.occurrences = occurrence_count;
-        });
-      }
-
       eosio::name most_common_name;
       uint64_t most_common_count = 0;
 
-      // Find the most common account name in the current rank
-      for (const auto &[name, count] : counts) {
-        if (count > most_common_count) {
-          most_common_name = name;
-          most_common_count = count;
+      // Count occurrences and identify the most common account at the same time
+      for (const auto &submission : all_submissions) {
+        counts[submission[i]]++;
+
+        // Update most_common_name if necessary
+        if (counts[submission[i]] > most_common_count) {
+          most_common_name = submission[i];
+          most_common_count = counts[submission[i]];
         }
       }
 
-      // Check if the most common account name occurs in at least 2/3 of
-      // submissions
+      // Check consensus for the current rank
       if (most_common_count * 3 >= total_submissions * 2) {
         consensus_ranking.push_back(most_common_name);
       } else {
@@ -154,12 +104,13 @@ void zeosfractest::automvalid() {
       }
     }
 
-    // If consensus was reached for all ranks in the group, add to the result
+    // Store consensus ranking for the group if consensus is achieved
     if (has_consensus) {
       allRankings.push_back(consensus_ranking);
     }
   }
-  // Save the result to the results table
+
+  // Store results
   results_t results_table(_self, _self.value);
   for (const auto &consensus_group : allRankings) {
     results_table.emplace(_self, [&](auto &r) {
@@ -168,6 +119,9 @@ void zeosfractest::automvalid() {
     });
   }
 }
+
+
+
 
 void zeosfractest::insertrank(name user, uint64_t room,
                               std::vector<name> rankings) {
@@ -223,43 +177,68 @@ void zeosfractest::populate() {
   insertrank("quentin"_n, 5, {"quentin"_n, "nina"_n, "oliver"_n, "patty"_n});
 
   // Room 6 (5-user group with consensus)
-  insertrank("rachel"_n, 6,
-             {"rachel"_n, "steve"_n, "tina"_n, "ulysses"_n, "victor"_n});
-  insertrank("steve"_n, 6,
-             {"rachel"_n, "steve"_n, "tina"_n, "ulysses"_n, "victor"_n});
-  insertrank("tina"_n, 6,
-             {"rachel"_n, "steve"_n, "ulysses"_n, "tina"_n, "victor"_n});
-  insertrank("ulysses"_n, 6,
-             {"rachel"_n, "steve"_n, "tina"_n, "ulysses"_n, "victor"_n});
-  insertrank("victor"_n, 6,
-             {"rachel"_n, "steve"_n, "tina"_n, "ulysses"_n, "victor"_n});
+  insertrank("rachel"_n, 6,{"rachel"_n, "steve"_n, "tina"_n, "ulysses"_n, "victor"_n});
+  insertrank("steve"_n, 6, {"rachel"_n, "steve"_n, "tina"_n, "ulysses"_n, "victor"_n});
+  insertrank("tina"_n, 6,{"rachel"_n, "steve"_n, "ulysses"_n, "tina"_n, "victor"_n});
+  insertrank("ulysses"_n, 6,{"rachel"_n, "steve"_n, "tina"_n, "ulysses"_n, "victor"_n});
+  insertrank("victor"_n, 6,{"rachel"_n, "steve"_n, "tina"_n, "ulysses"_n, "victor"_n});
 
   // Room 7 (5-user group without consensus)
-  insertrank("wanda"_n, 7,
-             {"wanda"_n, "xander"_n, "yara"_n, "zane"_n, "ada"_n});
-  insertrank("xander"_n, 7,
-             {"xander"_n, "yara"_n, "ada"_n, "wanda"_n, "zane"_n});
+  insertrank("wanda"_n, 7,{"wanda"_n, "xander"_n, "yara"_n, "zane"_n, "ada"_n});
+  insertrank("xander"_n, 7,{"xander"_n, "yara"_n, "ada"_n, "wanda"_n, "zane"_n});
   insertrank("yara"_n, 7, {"yara"_n, "ada"_n, "wanda"_n, "xander"_n, "zane"_n});
   insertrank("zane"_n, 7, {"zane"_n, "yara"_n, "ada"_n, "wanda"_n, "xander"_n});
   insertrank("ada"_n, 7, {"ada"_n, "zane"_n, "wanda"_n, "xander"_n, "yara"_n});
 
-  // And so on for 6-user groups...
+ // Room 10 (6-user group with consensus)
+insertrank("aleksandr"_n, 10, {"aleksandr"_n, "boris"_n, "dmitriy"_n, "elena"_n, "fedor"_n, "galina"_n});
+insertrank("boris"_n, 10, {"aleksandr"_n, "boris"_n, "dmitriy"_n, "elena"_n, "fedor"_n, "galina"_n});
+insertrank("dmitriy"_n, 10, {"aleksandr"_n, "boris"_n, "dmitriy"_n, "elena"_n, "galina"_n, "fedor"_n});
+insertrank("elena"_n, 10, {"aleksandr"_n, "boris"_n, "dmitriy"_n, "elena"_n, "galina"_n, "fedor"_n});
+insertrank("fedor"_n, 10, {"aleksandr"_n, "boris"_n, "dmitriy"_n, "elena"_n, "fedor"_n, "galina"_n});
+insertrank("galina"_n, 10, {"aleksandr"_n, "boris"_n, "dmitriy"_n, "elena"_n, "fedor"_n, "galina"_n});
+
+// Room 11 (6-user group without consensus)
+insertrank("igor"_n, 11, {"igor"_n, "yulia"_n, "konstantin"_n, "ludmila"_n, "mikhail"_n, "natalya"_n});
+insertrank("yulia"_n, 11, {"yulia"_n, "konstantin"_n, "natalya"_n, "igor"_n, "ludmila"_n, "mikhail"_n});
+insertrank("konstantin"_n, 11, {"konstantin"_n, "natalya"_n, "igor"_n, "yulia"_n, "ludmila"_n, "mikhail"_n});
+insertrank("ludmila"_n, 11, {"ludmila"_n, "konstantin"_n, "natalya"_n, "igor"_n, "yulia"_n, "mikhail"_n});
+insertrank("mikhail"_n, 11, {"mikhail"_n, "ludmila"_n, "igor"_n, "yulia"_n, "konstantin"_n, "natalya"_n});
+insertrank("natalya"_n, 11, {"natalya"_n, "mikhail"_n, "ludmila"_n, "konstantin"_n, "yulia"_n, "igor"_n});
+
+
+// Room 12 (6-user group with half the vectors identical) no consensus
+insertrank("usera"_n, 12, {"usera"_n, "userb"_n, "userc"_n, "userd"_n, "usere"_n, "userf"_n});
+insertrank("userb"_n, 12, {"usera"_n, "userb"_n, "userc"_n, "userd"_n, "usere"_n, "userf"_n});
+insertrank("userc"_n, 12, {"usera"_n, "userb"_n, "userc"_n, "userd"_n, "usere"_n, "userf"_n});
+insertrank("userd"_n, 12, {"userd"_n, "usere"_n, "userf"_n, "usera"_n, "userb"_n, "userc"_n});
+insertrank("usere"_n, 12, {"usere"_n, "userf"_n, "userd"_n, "userc"_n, "userb"_n, "usera"_n});
+insertrank("userf"_n, 12, {"userf"_n, "usera"_n, "userb"_n, "userc"_n, "userd"_n, "usere"_n});
+
+// Room 10 (6-user group with consensus)
+insertrank("aleksandr"_n, 10, {"aleksandr"_n, "boris"_n, "dmitriy"_n, "elena"_n, "fedor"_n, "galina"_n});
+insertrank("boris"_n, 10, {"aleksandr"_n, "boris"_n, "dmitriy"_n, "elena"_n, "fedor"_n, "galina"_n});
+insertrank("dmitriy"_n, 10, {"aleksandr"_n, "boris"_n, "dmitriy"_n, "elena"_n, "galina"_n, "fedor"_n});
+insertrank("elena"_n, 10, {"aleksandr"_n, "boris"_n, "dmitriy"_n, "elena"_n, "galina"_n, "fedor"_n});
+insertrank("fedor"_n, 10, {"aleksandr"_n, "boris"_n, "dmitriy"_n, "elena"_n, "fedor"_n, "galina"_n});
+insertrank("galina"_n, 10, {"aleksandr"_n, "boris"_n, "dmitriy"_n, "elena"_n, "fedor"_n, "galina"_n});
+
 }
 
 void zeosfractest::clearranks() {
-  // Assuming you have the rankings table defined somewhere
-  rankings_t rankings_table(_self, 1);
+              // Assuming you have the rankings table defined somewhere
+              rankings_t rankings_table(_self, 1);
 
-  // For clearing the rankings table
-  auto rank_itr = rankings_table.begin();
-  while (rank_itr != rankings_table.end()) {
-    rank_itr = rankings_table.erase(rank_itr);
-  }
+              // For clearing the rankings table
+              auto rank_itr = rankings_table.begin();
+              while (rank_itr != rankings_table.end()) {
+                rank_itr = rankings_table.erase(rank_itr);
+              }
 
-  // For clearing the countdata table
-  countdata_t countdata_table(_self, _self.value);
-  auto count_itr = countdata_table.begin();
-  while (count_itr != countdata_table.end()) {
-    count_itr = countdata_table.erase(count_itr);
-  }
+              // For clearing the countdata table
+              countdata_t countdata_table(_self, _self.value);
+              auto count_itr = countdata_table.begin();
+              while (count_itr != countdata_table.end()) {
+                count_itr = countdata_table.erase(count_itr);
+              }
 }
