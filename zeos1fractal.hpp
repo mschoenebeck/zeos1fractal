@@ -41,6 +41,10 @@ public:
         uint64_t next_event_block_height;
         uint64_t participate_duration;
         uint64_t rooms_duration;
+        //Needed for the REZPECT distribution, if we store it here amount of REZPECT that is being distributed could be increased by simply triggering modify action
+        //eg. if fib_offset = 6, then lowest level (Rank 1), gets 8 REZPECT (8 sixth number in the Fibonacci sequence)
+        //uint8_t fib_offset; 
+
     };
     singleton<"global"_n, global> _global;
 
@@ -54,6 +58,10 @@ public:
         string profile_why;                 // Why do you want to be part of the ZEOS fractal?
         string profile_about;               // A few words about yourself
         map<name, string> profile_links;    // for instance: twitter.com => @mschoenebeck1 or SSH => ssh-rsa AAAAB3NzaC1yc2E
+        //vector<uint64_t> recent_respect;  // each element contains weekly REZPECT earned
+        //uint8_t meeting_counter;          // shows which element in the vector to adjust
+        //uint64_t avg_of_recent_respect    // this determines who gets to the msig
+
 
         uint64_t primary_key() const { return user.value; }
     };
@@ -95,7 +103,8 @@ public:
         uint64_t primary_key() const { return user.value; }
         uint64_t by_secondary() const { return room; }
     };
-    typedef multi_index<"rankings"_n, ranking> rankings_t;
+    typedef eosio::multi_index<"rankings"_n, ranking, 
+    indexed_by<"bysecondary"_n, const_mem_fun<ranking, uint64_t, &ranking::by_secondary>>> rankings_t;
 
     // all rewards that get distributed in the upcoming event
     TABLE reward
