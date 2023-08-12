@@ -143,7 +143,7 @@ private:
     template<class RandomAccessIterator>
     void my_shuffle(RandomAccessIterator first, RandomAccessIterator last)
     {
-        for (auto i=(last-first)-1; i>0; --i)
+        for(auto i = (last - first) - 1; i > 0; --i)
         {
             r4ndomnumb3r::generate_action r4ndomnumb3r_generate("r4ndomnumb3r"_n, {_self, "active"_n});
             r4ndomnumb3r_generate.send();

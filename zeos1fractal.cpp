@@ -11,7 +11,7 @@ zeos1fractal::zeos1fractal(
 void zeos1fractal::init(const uint64_t &first_event_block_height)
 {
     require_auth(_self);
-    check(first_event_block_height > static_cast<uint64_t>(current_block_number()), "first event must take place in the future");
+    check(first_event_block_height == 0 || first_event_block_height > static_cast<uint64_t>(current_block_number()), "first event must take place in the future");
 
     _global.set({
         STATE_IDLE,
@@ -144,7 +144,7 @@ void zeos1fractal::assetin(
     // to block a particular token symbol) actually having a table for the symbol
     // -> contract mapping would begood to have. I would use the same table (a
     // "valid symbol" table) for the zeos protocol & DEX as well (include only
-    // tokens based on what the community whitelists)
+    // tokens the community whitelists)
 
     name first_receiver = get_first_receiver();
     if(first_receiver == "atomicassets"_n)
