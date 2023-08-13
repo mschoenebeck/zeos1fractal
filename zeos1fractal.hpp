@@ -164,4 +164,8 @@ private:
             my_swap(first[i], first[r]);
         }
     }
+
+    void checkconsens();
+    void creategrps();
+
 };

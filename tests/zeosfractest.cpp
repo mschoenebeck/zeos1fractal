@@ -2,6 +2,18 @@
 #include <eosio/singleton.hpp>
 
 using namespace eosio;
+using namespace std;
+
+CONTRACT r4ndomnumb3r : public contract
+{
+public:
+    using contract::contract;
+
+    ACTION generate();
+    using generate_action = action_wrapper<"generate"_n, &r4ndomnumb3r::generate>;
+};
+
+
 
 CONTRACT zeosfractest : public contract {
 public:
@@ -11,6 +23,17 @@ public:
   ACTION insertrank(name user, uint64_t room, std::vector<name> rankings);
   ACTION populate(); // For prepopulating the rankings table
   ACTION clearranks();
+  ACTION creategrps(uint32_t num);
+  ACTION deleteall(); 
+  ACTION pede(); 
+
+
+
+    TABLE rng
+    {
+        checksum256 value;
+    };
+    using rng_t = singleton<"rng"_n, rng>;
 
   TABLE countdata {
     uint64_t id;         // Unique ID
@@ -37,6 +60,7 @@ public:
                  const_mem_fun<ranking, uint64_t, &ranking::by_secondary>>>
       rankings_t;
 
+
   TABLE result {
     uint64_t id;
     std::vector<name> consensus_rankings;
@@ -46,9 +70,55 @@ public:
   typedef multi_index<"results"_n, result> results_t;
 
   // ... (other tables and actions if needed)
+// Table for participants
+TABLE participant {
+    name user;
+
+    uint64_t primary_key() const { return user.value; }
 };
+typedef eosio::multi_index<"participants"_n, participant> participants_t;
 
 
+
+ TABLE room
+    {
+        uint64_t id;
+        vector<name> users;
+
+        uint64_t primary_key() const { return id; }
+    };
+    typedef multi_index<"rooms"_n, room> rooms_t;
+
+
+private:
+
+    // simple generic swap
+    template<typename T>
+    void my_swap(T& t1, T& t2)
+    {
+        T tmp = move(t1);
+        t1 = move(t2);
+        t2 = move(tmp);
+    }
+
+    // an adaption of: https://cplusplus.com/reference/algorithm/shuffle/
+    template<class RandomAccessIterator>
+    void my_shuffle(RandomAccessIterator first, RandomAccessIterator last)
+    {
+        for(auto i = (last - first) - 1; i > 0; --i)
+        {
+            r4ndomnumb3r::generate_action r4ndomnumb3r_generate("r4ndomnumb3r"_n, {_self, "active"_n});
+            r4ndomnumb3r_generate.send();
+            rng_t rndnmbr("r4ndomnumb3r"_n, "r4ndomnumb3r"_n.value);
+            checksum256 x = rndnmbr.get().value;
+            uint64_t r = *reinterpret_cast<uint64_t*>(&x) % (i+1);
+            my_swap(first[i], first[r]);
+        }
+    }
+
+
+};
+ 
 
 void zeosfractest::automvalid() {
   // Access the rankings table
@@ -155,8 +225,8 @@ void zeosfractest::populate() {
   insertrank("carol"_n, 1, {"john"_n, "anton"_n, "carol"_n});
 
   // Room 2 (3-user group without consensus)
-  insertrank("dave"_n, 2, {"dave"_n, "eve"_n, "frank"_n});
-  insertrank("eve"_n, 2, {"eve"_n, "dave"_n, "frank"_n});
+  insertrank("dave"_n, 2, {"frank"_n, "eve"_n, "dave"_n});
+  insertrank("eve"_n, 2, {"frank"_n, "eve"_n, "dave"_n});
   insertrank("frank"_n, 2, {"frank"_n, "eve"_n, "dave"_n});
 
   // Room 3 (3-user group without consensus)
@@ -172,9 +242,9 @@ void zeosfractest::populate() {
 
   // Room 5 (4-user group without consensus)
   insertrank("nina"_n, 5, {"nina"_n, "oliver"_n, "patty"_n, "quentin"_n});
-  insertrank("oliver"_n, 5, {"oliver"_n, "patty"_n, "nina"_n, "quentin"_n});
+  insertrank("oliver"_n, 5, {"nina"_n, "oliver"_n, "patty"_n, "quentin"_n});
   insertrank("patty"_n, 5, {"patty"_n, "oliver"_n, "nina"_n, "quentin"_n});
-  insertrank("quentin"_n, 5, {"quentin"_n, "nina"_n, "oliver"_n, "patty"_n});
+  insertrank("quentin"_n, 5, {"patty"_n, "oliver"_n, "nina"_n, "quentin"_n});
 
   // Room 6 (5-user group with consensus)
   insertrank("rachel"_n, 6,{"rachel"_n, "steve"_n, "tina"_n, "ulysses"_n, "victor"_n});
@@ -241,4 +311,150 @@ void zeosfractest::clearranks() {
               while (count_itr != countdata_table.end()) {
                 count_itr = countdata_table.erase(count_itr);
               }
+              }
+
+   void zeosfractest::deleteall() {
+        require_auth(_self); // Only the contract owner can run this
+
+        participants_t participants(_self, _self.value);
+        auto participants_itr = participants.begin();
+        while (participants_itr != participants.end()) {
+            participants_itr = participants.erase(participants_itr);
+        }
+
+        rooms_t groups(_self, _self.value);
+        auto groups_itr = groups.begin();
+        while (groups_itr != groups.end()) {
+            groups_itr = groups.erase(groups_itr);
+        }
+    }
+
+    void zeosfractest::pede(){}
+
+
+
+    void zeosfractest::creategrps(uint32_t num) {
+
+    vector<name> sample_accounts = {
+    "usera1aa"_n, "usera2aa"_n, "usera3aa"_n, "usera4aa"_n, "usera5aa"_n,
+    "userb1bb"_n, "userb2bb"_n, "userb3bb"_n, "userb4bb"_n, "userb5bb"_n,
+    "userc1cc"_n, "userc2cc"_n, "userc3cc"_n, "userc4cc"_n, "userc5cc"_n,
+    "userd1dd"_n, "userd2dd"_n, "userd3dd"_n, "userd4dd"_n, "userd5dd"_n,
+    "usere1ee"_n, "usere2ee"_n, "usere3ee"_n, "usere4ee"_n, "usere5ee"_n,
+    "userf1ff"_n, "userf2ff"_n, "userf3ff"_n, "userf4ff"_n, "userf5ff"_n,
+    "userg1gg"_n, "userg2gg"_n, "userg3gg"_n, "userg4gg"_n, "userg5gg"_n,
+    "userh1hh"_n, "userh2hh"_n, "userh3hh"_n, "userh4hh"_n, "userh5hh"_n,
+    "useri1ii"_n, "useri2ii"_n, "useri3ii"_n, "useri4ii"_n, "useri5ii"_n,
+    "userj1jj"_n, "userj2jj"_n, "userj3jj"_n, "userj4jj"_n, "userj5jj"_n,
+    "k1k1"_n, "k2k2"_n, "k3k3"_n, "k4k4"_n, "k5k5"_n,
+    "l1l1"_n, "l2l2"_n, "l3l3"_n, "l4l4"_n, "l5l5"_n,
+    "m1m1"_n, "m2m2"_n, "m3m3"_n, "m4m4"_n, "m5m5"_n,
+    "n1n1"_n, "n2n2"_n, "n3n3"_n, "n4n4"_n, "n5n5"_n,
+    "o1o1"_n, "o2o2"_n, "o3o3"_n, "o4o4"_n, "o5o5"_n,
+    "p1p1"_n, "p2p2"_n, "p3p3"_n, "p4p4"_n, "p5p5"_n,
+    "q1q1"_n, "q2q2"_n, "q3q3"_n, "q4q4"_n, "q5q5"_n,
+    "r1r1"_n, "r2r2"_n, "r3r3"_n, "r4r4"_n, "r5r5"_n,
+    "s1s1"_n, "s2s2"_n, "s3s3"_n, "s4s4"_n, "s5s5"_n,
+    "t1t1"_n, "t2t2"_n, "t3t3"_n, "t4t4"_n, "t5t5"_n
+    
+
+    };
+    // Ensure num_participants is within bounds
+    eosio::check(num <= sample_accounts.size(), "num_participants exceeds the size of sample accounts.");
+
+    // Insert the selected number of participants into the participants table
+    participants_t participants(_self, _self.value);
+    for(uint32_t i = 0; i < num; ++i) {
+        participants.emplace(_self, [&](auto& row) {
+            row.user = sample_accounts[i];
+        });
+    }
+
+
+
+    //participants_t participants(_self, _self.value);
+    vector<name> all_participants;
+    
+    // Iterate over each participant in the table
+    for (const auto& participant : participants) {
+    // Add each participant's name to the all_participants vector
+    all_participants.push_back(participant.user);
+       }
+    // Shuffle the all_participants vector
+    //my_shuffle(all_participants.begin(), all_participants.end());
+
+    // Ensure we're working with valid participants count
+    //eosio::check(all_participants.size() <= participants.size(), "Number of shuffled participants exceeds the size of the original participants list.");
+
+    rooms_t rooms(_self, _self.value);
+    auto num_participants = all_participants.size();
+
+    vector<uint8_t> group_sizes;
+
+    // First part: hardcoded groups up to 20
+        if (num_participants <= 20) {
+    if (num_participants == 3) group_sizes = {3};
+    else if (num_participants == 4) group_sizes = {4};
+    else if (num_participants == 5) group_sizes = {5};
+    else if (num_participants == 6) group_sizes = {6};
+    else if (num_participants == 7) group_sizes = {3, 4};
+    else if (num_participants == 8) group_sizes = {4, 4};
+    else if (num_participants == 9) group_sizes = {5, 4};
+    else if (num_participants == 10) group_sizes = {5, 5};
+    else if (num_participants == 11) group_sizes = {5, 6};
+    else if (num_participants == 12) group_sizes = {6, 6};
+    else if (num_participants == 13) group_sizes = {5, 4, 4};
+    else if (num_participants == 14) group_sizes = {5, 5, 4};
+    else if (num_participants == 15) group_sizes = {5, 5, 5};
+    else if (num_participants == 16) group_sizes = {6, 5, 5};
+    else if (num_participants == 17) group_sizes = {6, 6, 5};
+    else if (num_participants == 18) group_sizes = {6, 6, 6};
+    else if (num_participants == 19) group_sizes = {5, 5, 5, 4};
+    else if (num_participants == 20) group_sizes = {5, 5, 5, 5};
+        }
+        // Second part: generic algorithm for 21+ participants
+        else {
+            // As per the constraint, we start with groups of 6
+            uint8_t count_of_fives = 0;
+            while (num_participants > 0) {
+                if (num_participants % 6 != 0 && count_of_fives < 5) {
+                    group_sizes.push_back(5);
+                    num_participants -= 5;
+                    count_of_fives++;
+                } else {
+                    group_sizes.push_back(6);
+                    num_participants -= 6;
+                    if (count_of_fives == 5) count_of_fives = 0;
+                }
+            }
+        }
+    // Create the actual groups using group_sizes
+    auto iter = all_participants.begin();
+
+    uint64_t room_id = rooms.available_primary_key();
+    // Ensure we start from 1 if table is empty
+    if (room_id == 0) {
+        room_id = 1;
+    }
+
+    // Iterate over the group sizes to create and populate rooms
+    for (uint8_t size : group_sizes) {
+    // A temporary vector to store the users in the current room
+    vector<name> users_in_room;
+
+    // Iterate until the desired group size is reached or until all participants have been processed
+    for (uint8_t j = 0; j < size && iter != all_participants.end(); j++, ++iter) {
+        // Add the current participant to the users_in_room vector
+        users_in_room.push_back(*iter);
+    }
+
+    // Insert a new room record into the rooms table
+    rooms.emplace(_self, [&](auto& r) {
+        // Assign a unique ID to the room and prepare for the next room's ID
+        r.id = room_id++;
+        // Assign the users_in_room vector to the current room's user list
+        r.users = users_in_room;
+    });
+ 
+}
 }
