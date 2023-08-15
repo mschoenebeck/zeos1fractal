@@ -89,6 +89,8 @@ void zeos1fractal::signup(
     members_t members(_self, _self.value);
     auto usr = members.find(user.value);
     check(usr == members.end(), "user already signed up");
+    //UI will automatically read the user's account name so should not be a problem, but I'd still add it.
+    //check(is_account(user), "account " + acc.to_string() + " does not exist");
 
     members.emplace(user, [&](auto &row) {
         row.user = user;
@@ -169,7 +171,58 @@ void zeos1fractal::submitranks(
 {
     require_auth(user);
 
-    // TODO
+    // Check whether user is a part of a group he is submitting consensus for.
+    rooms_t rooms(_self, _self.value);
+
+    const auto &room_iter = rooms.get(group_id, "No group with such ID.");
+  
+    bool exists = false;
+    for (const name& room_user : room_iter.users) 
+    {
+        if (room_user == user) 
+        {
+            exists = true;
+            break;
+        }
+    }
+
+    check(exists, "Your account name not found in group");
+
+    size_t group_size = rankings.size();
+    check(group_size >= 3, "too small group");
+    check(group_size <= 6, "too big group");
+
+    // Check if all the accounts in the rankings are part of the room
+    for (const name& ranked_user : rankings)
+    {
+        auto iter = std::find(room_iter.users.begin(), room_iter.users.end(), ranked_user);
+        check(iter != room_iter.users.end(), ranked_user.to_string() + " not found in the group.");
+    }
+
+    // Check that no account is listed more than once in rankings
+    std::set<name> unique_ranked_accounts(rankings.begin(), rankings.end());
+    check(rankings.size() == unique_ranked_accounts.size(), "Duplicate accounts found in rankings.");
+
+    for (const name& ranked_user : rankings) 
+    {
+        std::string rankname = ranked_user.to_string();
+        check(is_account(ranked_user), rankname + " account does not exist.");
+    }
+
+    rankings_t rankings_table(_self, _self.value);
+
+    if (rankings_table.find(user.value) == rankings_table.end()) 
+    {
+        rankings_table.emplace(user, [&](auto &row) {
+            row.user = user;
+            row.room = group_id; 
+            row.rankings = rankings;
+        });
+    } 
+    else 
+    {
+        check(false, "You can vote only once my friend.");
+    }
 }
 
 void zeos1fractal::authenticate(
@@ -251,51 +304,60 @@ void zeos1fractal::checkconsens()
 
   // Iterate through rankings table by group, using the secondary index
   auto itr = idx.begin();
-  while (itr != idx.end()) {
-    uint64_t current_group = itr->room;
+  while (itr != idx.end()) 
+  {
+     uint64_t current_group = itr->room;
 
-    // Store all submissions for the current group
-    std::vector<std::vector<eosio::name>> all_submissions;
+     // Store all submissions for the current group
+     std::vector<std::vector<eosio::name>> all_submissions;
 
     // Aggregate all submissions for the current group
-    while (itr != idx.end() && itr->room == current_group) {
-      all_submissions.push_back(itr->rankings);
-      ++itr;
-    }
+     while (itr != idx.end() && itr->room == current_group) 
+     {
+        all_submissions.push_back(itr->rankings);
+        ++itr;
+     }
 
     std::vector<eosio::name> consensus_ranking;
     bool has_consensus = true;
     size_t total_submissions = all_submissions.size();
 
     // Check consensus for this group
-    for (size_t i = 0; i < all_submissions[0].size(); ++i) {
-      std::map<eosio::name, uint64_t> counts;
-      eosio::name most_common_name;
-      uint64_t most_common_count = 0;
+    for (size_t i = 0; i < all_submissions[0].size(); ++i) 
+    {
+       std::map<eosio::name, uint64_t> counts;
+       eosio::name most_common_name;
+       uint64_t most_common_count = 0;
 
       // Count occurrences and identify the most common account at the same time
-      for (const auto &submission : all_submissions) {
-        counts[submission[i]]++;
+       for (const auto &submission : all_submissions) 
+       {
+         counts[submission[i]]++;
 
         // Update most_common_name if necessary
-        if (counts[submission[i]] > most_common_count) {
-          most_common_name = submission[i];
-          most_common_count = counts[submission[i]];
+        if (counts[submission[i]] > most_common_count) 
+        {
+           most_common_name = submission[i];
+           most_common_count = counts[submission[i]];
         }
-      }
+       }
 
       // Check consensus for the current rank
-      if (most_common_count * 3 >= total_submissions * 2) {
-        consensus_ranking.push_back(most_common_name);
-      } else {
-        has_consensus = false;
-        break;
-      }
+       if (most_common_count * 3 >= total_submissions * 2) 
+       {
+         consensus_ranking.push_back(most_common_name);
+       } 
+       else 
+       {
+         has_consensus = false;
+         break;
+       }
     }
 
     // Store consensus ranking for the group if consensus is achieved
-    if (has_consensus) {
-      allRankings.push_back(consensus_ranking);
+    if (has_consensus) 
+    {
+       allRankings.push_back(consensus_ranking);
     }
   }
    // allRankings is passed to the function to distribute RESPECT and make other tokens claimable
@@ -309,10 +371,12 @@ void zeosfractest::creategrps()
     vector<name> all_participants;
     
     // Iterate over each participant in the table
-    for (const auto& participant : participants) {
-    // Add each participant's name to the all_participants vector
-    all_participants.push_back(participant.user);
+    for (const auto& participant : participants) 
+    {
+      // Add each participant's name to the all_participants vector
+      all_participants.push_back(participant.user);
     }
+
     // Shuffle the all_participants vector
     my_shuffle(all_participants.begin(), all_participants.end());
 
@@ -322,32 +386,36 @@ void zeosfractest::creategrps()
     vector<uint8_t> group_sizes;
 
     // First part: hardcoded groups up to 20
-    if (num_participants <= 20) {
-    if (num_participants == 3) group_sizes = {3};
-    else if (num_participants == 4) group_sizes = {4};
-    else if (num_participants == 5) group_sizes = {5};
-    else if (num_participants == 6) group_sizes = {6};
-    else if (num_participants == 7) group_sizes = {3, 4};
-    else if (num_participants == 8) group_sizes = {4, 4};
-    else if (num_participants == 9) group_sizes = {5, 4};
-    else if (num_participants == 10) group_sizes = {5, 5};
-    else if (num_participants == 11) group_sizes = {5, 6};
-    else if (num_participants == 12) group_sizes = {6, 6};
-    else if (num_participants == 13) group_sizes = {5, 4, 4};
-    else if (num_participants == 14) group_sizes = {5, 5, 4};
-    else if (num_participants == 15) group_sizes = {5, 5, 5};
-    else if (num_participants == 16) group_sizes = {6, 5, 5};
-    else if (num_participants == 17) group_sizes = {6, 6, 5};
-    else if (num_participants == 18) group_sizes = {6, 6, 6};
-    else if (num_participants == 19) group_sizes = {5, 5, 5, 4};
-    else if (num_participants == 20) group_sizes = {5, 5, 5, 5};
+    if (num_participants <= 20) 
+    {
+      if (num_participants == 3) group_sizes = {3};
+      else if (num_participants == 4) group_sizes = {4};
+      else if (num_participants == 5) group_sizes = {5};
+      else if (num_participants == 6) group_sizes = {6};
+      else if (num_participants == 7) group_sizes = {3, 4};
+      else if (num_participants == 8) group_sizes = {4, 4};
+      else if (num_participants == 9) group_sizes = {5, 4};
+      else if (num_participants == 10) group_sizes = {5, 5};
+      else if (num_participants == 11) group_sizes = {5, 6};
+      else if (num_participants == 12) group_sizes = {6, 6};
+      else if (num_participants == 13) group_sizes = {5, 4, 4};
+      else if (num_participants == 14) group_sizes = {5, 5, 4};
+      else if (num_participants == 15) group_sizes = {5, 5, 5};
+      else if (num_participants == 16) group_sizes = {6, 5, 5};
+      else if (num_participants == 17) group_sizes = {6, 6, 5};
+      else if (num_participants == 18) group_sizes = {6, 6, 6};
+      else if (num_participants == 19) group_sizes = {5, 5, 5, 4};
+      else if (num_participants == 20) group_sizes = {5, 5, 5, 5};
     }
         // Second part: generic algorithm for 20+ participants
-    else {
-            // As per the constraint, we start with groups of 6
-            uint8_t count_of_fives = 0;
-            while (num_participants > 0) {
-                if (num_participants % 6 != 0 && count_of_fives < 5) {
+    else 
+    {
+        // As per the constraint, we start with groups of 6
+        uint8_t count_of_fives = 0;
+        while (num_participants > 0) 
+            {
+                if (num_participants % 6 != 0 && count_of_fives < 5) 
+                    {
                     group_sizes.push_back(5);
                     num_participants -= 5;
                     count_of_fives++;
@@ -359,35 +427,41 @@ void zeosfractest::creategrps()
                     }
              }
     }
+
+
     // Create the actual groups using group_sizes
     auto iter = all_participants.begin();
 
     uint64_t room_id = rooms.available_primary_key();
     // Ensure we start from 1 if table is empty
-    if (room_id == 0) {
+    if (room_id == 0) 
+    {
         room_id = 1;
     }
 
+
     // Iterate over the group sizes to create and populate rooms
-    for (uint8_t size : group_sizes) {
+    for (uint8_t size : group_sizes) 
+    {
+       // A temporary vector to store the users in the current room
+       vector<name> users_in_room;
 
-    // A temporary vector to store the users in the current room
-    vector<name> users_in_room;
+       // Iterate until the desired group size is reached or until all participants have been processed
+       for (uint8_t j = 0; j < size && iter != all_participants.end(); j++, ++iter) 
+       {
+          // Add the current participant to the users_in_room vector
+          users_in_room.push_back(*iter);
+       }
 
-    // Iterate until the desired group size is reached or until all participants have been processed
-    for (uint8_t j = 0; j < size && iter != all_participants.end(); j++, ++iter) {
-        // Add the current participant to the users_in_room vector
-        users_in_room.push_back(*iter);
-    }
-
-    // Insert a new room record into the rooms table
-    rooms.emplace(_self, [&](auto& r) {
+       // Insert a new room record into the rooms table
+       rooms.emplace(_self, [&](auto& r) {
         // Assign a unique ID to the room and prepare for the next room's ID
-        r.id = room_id++;
-        // Assign the users_in_room vector to the current room's user list
-        r.users = users_in_room;
-    });
+         r.id = room_id++;
+         // Assign the users_in_room vector to the current room's user list
+         r.users = users_in_room;
+       });
     }
+
 }
 
 void zeos1fractal::testshuffle()

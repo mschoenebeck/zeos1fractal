@@ -1,5 +1,9 @@
 #include <eosio/eosio.hpp>
 #include <eosio/singleton.hpp>
+#include <eosio/asset.hpp>
+#include <numeric>
+
+
 
 using namespace eosio;
 using namespace std;
@@ -25,9 +29,31 @@ public:
   ACTION clearranks();
   ACTION creategrps(uint32_t num);
   ACTION deleteall(); 
-  ACTION pede(); 
+  //ACTION pede(); 
+  ACTION testshuffle();
 
 
+/*
+scope: user acc name
+*/
+TABLE claim {
+extended_asset quantity;
+uint64_t primary_key() const { return quantity.quantity.symbol.code().raw(); }
+
+};
+typedef eosio::multi_index<"claims"_n, claim> claim_t;
+
+
+    // all rewards that get distributed in the upcoming event
+    TABLE reward
+    {
+        extended_asset quantity;
+
+        uint64_t primary_key() const { return quantity.quantity.symbol.raw(); }
+    };
+    typedef multi_index<"rewards"_n, reward> rewards_t;
+
+    
 
     TABLE rng
     {
@@ -329,7 +355,7 @@ void zeosfractest::clearranks() {
         }
     }
 
-    void zeosfractest::pede(){}
+    //void zeosfractest::pede(){}
 
 
 
@@ -381,13 +407,25 @@ void zeosfractest::clearranks() {
     all_participants.push_back(participant.user);
        }
     // Shuffle the all_participants vector
-    //my_shuffle(all_participants.begin(), all_participants.end());
+    my_shuffle(all_participants.begin(), all_participants.end());
+/*
+string s = "";
+    for(const auto& e : all_participants)
+    {
+        s += e.to_string() + ", ";
+    }
+
+    // Log the shuffled names (using check for now, but print can be used for actual logging)
+    check(0, s);
+*/
 
     // Ensure we're working with valid participants count
-    //eosio::check(all_participants.size() <= participants.size(), "Number of shuffled participants exceeds the size of the original participants list.");
+    //eosio::check(all_participants.size() <= num, "Number of shuffled participants exceeds the size of the original participants list.");
+    //eosio::check(all_participants.size() >= num, "Number of shuffled participants is smaller than the size of the original participants list.");
 
     rooms_t rooms(_self, _self.value);
     auto num_participants = all_participants.size();
+    //check(false, num_participants);
 
     vector<uint8_t> group_sizes;
 
@@ -428,6 +466,10 @@ void zeosfractest::clearranks() {
                 }
             }
         }
+
+        // Ensure the sum of group_sizes doesn't exceed all_participants.size().
+//uint32_t total_group_size = std::accumulate(group_sizes.begin(), group_sizes.end(), 0);
+//eosio::check(total_group_size <= all_participants.size(), "Sum of group sizes exceeds the total number of participants.");
     // Create the actual groups using group_sizes
     auto iter = all_participants.begin();
 
@@ -458,3 +500,234 @@ void zeosfractest::clearranks() {
  
 }
 }
+
+/*
+void zeosfractest::testshuffle()
+{
+
+  vector<name> v = {
+    "usera1aa"_n, "usera2aa"_n, "usera3aa"_n, "usera4aa"_n, "usera5aa"_n,
+    "userb1bb"_n, "userb2bb"_n, "userb3bb"_n, "userb4bb"_n, "userb5bb"_n,};
+    //vector<uint64_t> v = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    my_shuffle(v.begin(), v.end());
+    string s = "";
+    for(auto e : v)
+    {
+        s += to_string(e) + ", ";
+    }
+    check(0, s);
+}
+*/
+void zeosfractest::testshuffle()
+{
+    // Create a sample vector of EOSIO names
+    vector<name> v = {
+        "usera1aa"_n, "userb1bb"_n, "userc1cc"_n, "userd1dd"_n,
+        "usere1ee"_n, "userf1ff"_n, "userg1gg"_n, "userh1hh"_n
+    };
+
+    // Shuffle the names
+    my_shuffle(v.begin(), v.end());
+
+    // Convert shuffled names to a string for easier logging or checks
+    string s = "";
+    for(const auto& e : v)
+    {
+        s += e.to_string() + ", ";
+    }
+
+    // Log the shuffled names (using check for now, but print can be used for actual logging)
+    //check(0, s);
+}
+
+/*
+void awfractal::submitranks(const AllRankings &ranks) {
+
+  auto coeffSum =
+      std::accumulate(std::begin(polyCoeffs), std::end(polyCoeffs), 0.0);
+
+//Loop should start here?
+  // Calculation how much EOS per coefficient.
+  auto multiplier = (double)newrew.eos_reward_amt / (numGroups * coeffSum);
+
+
+
+  std::vector<int64_t> eosRewards;
+  std::transform(std::begin(polyCoeffs), std::end(polyCoeffs),
+                 std::back_inserter(eosRewards), [&](const auto &c) {
+                   auto finalEosQuant = static_cast<int64_t>(multiplier * c);
+                   check(finalEosQuant > 0,
+                         "Total configured POLL distribution is too small to "
+                         "distibute any reward to rank 1s");
+                   return finalEosQuant;
+                 });
+
+  std::map<name, uint8_t> accounts;
+
+  for (const auto &rank : ranks.allRankings) {
+
+    size_t group_size = rank.ranking.size();
+    auto rankIndex = max_group_size - group_size;
+    for (const auto &acc : rank.ranking) {
+
+      auto fibAmount = static_cast<int64_t>(fib(rankIndex + newrew.fib_offset));
+      auto respect_amount = static_cast<int64_t>(fibAmount * std::pow(10, eden_symbol.precision()));
+      auto respectnQuantity = asset{respect_amount, eden_symbol};
+
+      //save the respectnQuantity in the members table for the user
+      //save the respectnQuantity in the vector that stores the latest respect for the dynamic msig function
+
+    
+      auto eosQuantity = asset{eosRewards[rankIndex], poll_symbol};
+
+      send(get_self(), acc, eosQuantity, "AW fractal $POLL rewards", _self);
+
+      ++rankIndex;
+    }
+  }
+}
+*/
+
+
+/*
+void awfractal::submitranks(const AllRankings &ranks) {
+  rewards_t rewards(get_self(), get_self().value);
+
+  // Iterate over all tokens in the rewards table
+  for (auto rew_itr = rewards.begin(); rew_itr != rewards.end(); ) {
+
+    // Check if the current reward is non-zero
+    if (rew_itr->quantity.amount <= 0) {
+      ++rew_itr;
+      continue;
+    }
+
+    auto availableReward = rew_itr->quantity.amount;
+    auto current_symbol = rew_itr->quantity.symbol;
+    auto coeffSum = std::accumulate(std::begin(polyCoeffs), std::end(polyCoeffs), 0.0);
+
+    // Calculate the EOS per coefficient.
+    auto multiplier = static_cast<double>(availableReward) / (numGroups * coeffSum);
+
+    std::vector<int64_t> eosRewards;
+    std::transform(std::begin(polyCoeffs), std::end(polyCoeffs),
+                   std::back_inserter(eosRewards), [&](const auto &c) {
+                       auto finalEosQuant = static_cast<int64_t>(multiplier * c);
+                       return finalEosQuant;
+                   });
+
+    for (const auto &rank : ranks.allRankings) {
+      size_t group_size = rank.ranking.size();
+      auto rankIndex = max_group_size - group_size;
+      for (const auto &acc : rank.ranking) {
+        auto fibAmount = static_cast<int64_t>(fib(rankIndex + newrew.fib_offset));
+        auto respect_amount = static_cast<int64_t>(fibAmount * std::pow(10, eden_symbol.precision()));
+        
+        members_t members(get_self(), get_self().value);
+        auto mem_itr = members.find(acc.value);
+        check(mem_itr != members.end(), "Account not found in members table");
+
+        // Update the user's respect in members table
+        members.modify(mem_itr, _self, [&](auto &row) {
+          row.respect += respect_amount;
+        });
+
+        auto eosAmount = eosRewards[rankIndex];
+        if (eosAmount > 0) {
+          claimable_t claimables(get_self(), acc.value);
+          auto claim_itr = claimables.find(current_symbol.code().raw());
+
+          if (claim_itr != claimables.end()) {
+            // Modify existing claimable balance
+            claimables.modify(claim_itr, _self, [&](auto &row) {
+              row.claimable.amount += eosAmount;
+            });
+          } else {
+            // Create new claimable balance entry
+            claimables.emplace(_self, [&](auto &row) {
+              row.claimable = asset{eosAmount, current_symbol};
+            });
+          }
+        }
+
+        ++rankIndex;
+      }
+    }
+
+    // Reduce the total reward in the rewards table by the distributed amount
+    rew_itr = rewards.erase(rew_itr);  // erase and move to the next entry
+  }
+}
+*/
+
+/*void awfractal::submitranks(const AllRankings &ranks) {
+  rewards_t rewards(get_self(), get_self().value);
+
+  for (const auto& reward_entry : rewards) {
+    auto availableReward = reward_entry.quantity.amount;
+    if (availableReward <= 0) {
+      continue;  // Skip the iteration if there are no rewards available for this token.
+    }
+
+    auto coeffSum = std::accumulate(std::begin(polyCoeffs), std::end(polyCoeffs), 0.0);
+
+    // Calculate the EOS (or other token) per coefficient.
+    auto multiplier = static_cast<double>(availableReward) / (numGroups * coeffSum);
+
+    std::vector<int64_t> tokenRewards;
+    std::transform(std::begin(polyCoeffs), std::end(polyCoeffs),
+                   std::back_inserter(tokenRewards), [&](const auto &c) {
+                       auto finalEosQuant = static_cast<int64_t>(multiplier * c);
+                       return finalEosQuant;
+                   });
+
+    // If the reward for any coefficient is zero, skip distribution for this token.
+    if (std::any_of(tokenRewards.begin(), tokenRewards.end(), [](int64_t val) { return val == 0; })) {
+      continue;
+    }
+
+    for (const auto &rank : ranks.allRankings) {
+      size_t group_size = rank.ranking.size();
+      auto rankIndex = max_group_size - group_size;
+      for (const auto &acc : rank.ranking) {
+        auto fibAmount = static_cast<int64_t>(fib(rankIndex + newrew.fib_offset));
+        auto respect_amount = static_cast<int64_t>(fibAmount * std::pow(10, eden_symbol.precision()));
+
+        members_t members(get_self(), get_self().value);
+        auto mem_itr = members.find(acc.value);
+        check(mem_itr != members.end(), "Account not found in members table");
+
+        // Update the user's respect in members table
+        members.modify(mem_itr, _self, [&](auto &row) {
+          row.respect += respect_amount;
+        });
+
+        auto tokenAmount = tokenRewards[rankIndex];
+        if (tokenAmount > 0) {
+          claimable_t claimables(get_self(), acc.value);
+          auto claim_itr = claimables.find(reward_entry.quantity.symbol.code().raw());
+
+          if (claim_itr != claimables.end()) {
+            // Modify existing claimable balance
+            claimables.modify(claim_itr, _self, [&](auto &row) {
+              row.claimable.amount += tokenAmount;
+            });
+          } else {
+            // Create new claimable balance entry
+            claimables.emplace(_self, [&](auto &row) {
+              row.claimable = asset{tokenAmount, reward_entry.quantity.symbol};
+            });
+          }
+        }
+
+        ++rankIndex;
+      }
+    }
+
+    // Reduce the total reward in the rewards table by the distributed amount
+    rewards.modify(reward_entry, _self, [&](auto &row) {
+      row.quantity.amount -= availableReward;
+    });
+  }
+}
+*/
