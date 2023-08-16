@@ -361,7 +361,7 @@ void zeos1fractal::checkconsens()
     }
   }
    // allRankings is passed to the function to distribute RESPECT and make other tokens claimable
-   // distribute(allRankings);
+   distribute(allRankings);
 }
 
 void zeosfractest::creategrps() 
@@ -462,6 +462,113 @@ void zeosfractest::creategrps()
        });
     }
 
+}
+
+void zeos1fractal::distribute(const vector<vector<name>> &ranks) 
+{
+  rewards_t rewards(get_self(), get_self().value);
+
+  // 1. Distribute respect to each member based on their rank.
+  //    Respect is determined by the Fibonacci series and is independent of available tokens.
+  for (const auto &rank : ranks) 
+  {
+     // Determine the initial rank index based on group size.
+     size_t group_size = rank.size();
+     auto rankIndex = 6 - group_size;
+
+     for (const auto &acc : rank) 
+     {
+       // Calculate respect based on the Fibonacci series.
+       auto fibAmount = static_cast<int64_t>(fib(rankIndex + 5));
+       auto respect_amount = static_cast<int64_t>(fibAmount * std::pow(10, 4));
+
+       members_t members(get_self(), get_self().value);
+       auto mem_itr = members.find(acc.value);
+      
+       // Update respect for each member.
+       if (mem_itr == members.end())  // If user is not yet in members, add them.
+       {
+         members.emplace(_self, [&](auto &row) {
+           row.user = acc;
+           row.respect = respect_amount;
+         });
+       } 
+       else  // Otherwise, update their respect.
+       {
+         members.modify(mem_itr, _self, [&](auto &row) {
+           row.respect += respect_amount;
+         });
+       }
+
+       ++rankIndex;  // Move to next rank.
+     }
+  }
+
+  // 2. Distribute token rewards based on available tokens and user rank.
+  for (const auto& reward_entry : rewards) 
+  {
+    auto availableReward = reward_entry.quantity.quantity.amount;
+
+    // Skip if no tokens are available for distribution.
+    if (availableReward <= 0) 
+    {
+      continue;  
+    }
+
+    // Calculate multiplier using polynomial coefficients and total available reward.
+    auto coeffSum = std::accumulate(std::begin(polyCoeffs), std::end(polyCoeffs), 0.0);
+    auto multiplier = static_cast<double>(availableReward) / (ranks.size() * coeffSum);
+
+    // Determine token rewards for each rank.
+    std::vector<int64_t> tokenRewards;
+    std::transform(std::begin(polyCoeffs), std::end(polyCoeffs),
+                   std::back_inserter(tokenRewards), [&](const auto &c) {
+                       return static_cast<int64_t>(multiplier * c);
+                   });
+
+    // Skip if any rank gets 0 tokens.
+    if (std::any_of(tokenRewards.begin(), tokenRewards.end(), [](int64_t val) { return val == 0; })) 
+    {
+      continue;
+    }
+
+    // Update or add claimable tokens for each member based on their rank.
+    for (const auto &rank : ranks) 
+    {
+      size_t group_size = rank.size();
+      auto rankIndex = 6 - group_size;
+      for (const auto &acc : rank) 
+      {
+        auto tokenAmount = tokenRewards[rankIndex];
+
+        if (tokenAmount > 0)  // Only proceed if the member should get tokens.
+        {
+          claim_t claimables(get_self(), acc.value);
+          auto claim_itr = claimables.find(reward_entry.quantity.quantity.symbol.code().raw());
+
+          if (claim_itr != claimables.end())  // If member has claimables, update them.
+          {
+            claimables.modify(claim_itr, _self, [&](auto &row) {
+              row.quantity.quantity.amount += tokenAmount;
+            });
+          } 
+          else  // Otherwise, add new claimable.
+          {
+            claimables.emplace(_self, [&](auto &row) {
+              row.quantity.quantity = asset{tokenAmount, reward_entry.quantity.quantity.symbol};
+            });
+          }
+        }
+
+        ++rankIndex;  // Move to next rank.
+      }
+    }
+
+    // Deduct distributed amount from total available rewards.
+    rewards.modify(reward_entry, _self, [&](auto &row) {
+      row.quantity.quantity.amount -= availableReward;
+    });
+  }
 }
 
 void zeos1fractal::testshuffle()
