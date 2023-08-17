@@ -53,7 +53,16 @@ void zeos1fractal::changestate()
             g.state = STATE_IDLE;
             g.next_event_block_height = g.next_event_block_height + 1209600; // add one week of blocks
             g.event_count++;
-            
+            /*
+            if (g.global_meeting_counter == 12) 
+            {
+              g.global_meeting_counter = 0;
+            } 
+            else 
+            {
+              g.global_meeting_counter++;
+            }
+            */
             checkconsens(); //rename this to reflect all the actions that happen in sequence 
               
             // TODO:
@@ -484,24 +493,28 @@ void zeos1fractal::distribute(const vector<vector<name>> &ranks)
 
        members_t members(get_self(), get_self().value);
        auto mem_itr = members.find(acc.value);
-      
-       // Update respect for each member.
-       if (mem_itr == members.end())  // If user is not yet in members, add them.
+
+       uint8_t meeting_counter_new;
+
+       if (mem_itr->meeting_counter == 12) 
        {
-         members.emplace(_self, [&](auto &row) {
-           row.user = acc;
-           row.respect = respect_amount;
-         });
+         meeting_counter_new = 0;
        } 
-       else  // Otherwise, update their respect.
+       else 
        {
+         meeting_counter_new = mem_itr->meeting_counter + 1;
+       }
+
          members.modify(mem_itr, _self, [&](auto &row) {
            row.respect += respect_amount;
+           row.recent_respect[mem_itr->meeting_counter] = respect_amount;
+           row.meeting_counter = meeting_counter_new;
          });
-       }
+      }
 
        ++rankIndex;  // Move to next rank.
      }
+
   }
 
   // 2. Distribute token rewards based on available tokens and user rank.
@@ -564,12 +577,31 @@ void zeos1fractal::distribute(const vector<vector<name>> &ranks)
       }
     }
 
-    // Deduct distributed amount from total available rewards.
-    rewards.modify(reward_entry, _self, [&](auto &row) {
-      row.quantity.quantity.amount -= availableReward;
-    });
+    // Loop through the members who did not participate and update their recent_respect to 0 and meeting_counter
+  auto g = _global.get();
+  for (auto memb_itr = members.begin(); memb_itr != members.end(); ++memb_itr) 
+  {
+      // Check if member's meeting_counter is different from global_meeting_counter
+      if (memb_itr->meeting_counter != g.global_meeting_counter) 
+      {
+          // Modify the member's row
+          members.modify(memb_itr, get_self(), [&](auto &row) {
+              row.recent_respect[memb_itr->meeting_counter] = 0;
+              row.meeting_counter = g.global_meeting_counter;
+          });
+      }
   }
-}
+
+
+    // Deduct distributed amount from total available rewards.
+  rewards.modify(reward_entry, _self, [&](auto &row) {
+      row.quantity.quantity.amount -= availableReward;
+  });
+
+  changemsig();
+
+  }
+
 
 void zeos1fractal::testshuffle()
 {

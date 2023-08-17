@@ -58,6 +58,7 @@ public:
         //Needed for the REZPECT distribution, if we store it here amount of REZPECT that is being distributed could be increased by simply triggering modify action
         //eg. if fib_offset = 6, then lowest level (Rank 1), gets 8 REZPECT (8 sixth number in the Fibonacci sequence)
         //uint8_t fib_offset; 
+        //uint8_t global_meeting_counter;
 
     };
     singleton<"global"_n, global> _global;
