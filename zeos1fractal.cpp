@@ -603,6 +603,82 @@ void zeos1fractal::distribute(const vector<vector<name>> &ranks)
   }
 
 
+ void zeos1fractal::changemsig() 
+{
+  members_t members(get_self(), get_self().value);
+  avgbalance_t avgbalance(_self, _self.value);
+  council_t council(_self, _self.value);
+
+  // Calculate avg_respect of each member and save it to avgbalance_t
+  for (auto iter = members.begin(); iter != members.end(); ++iter)
+  {
+    uint64_t sum_of_respect = std::accumulate(iter->period_rezpect.begin(),iter->period_rezpect.end(), 0);
+    uint64_t nr_of_weeks = 12;
+    uint64_t avg_respect = sum_of_respect / nr_of_weeks;
+
+    auto to = avgbalance.find(iter->user.value);
+    if (to == avgbalance.end()) 
+    {
+      avgbalance.emplace(_self, [&](auto &a) {
+        a.user = iter->user;
+        a.avg_respect = avg_respect;
+      });
+    } 
+    else 
+    {
+      avgbalance.modify(to, _self, [&](auto &a) { a.avg_respect = avg_respect; });
+    }
+  }
+
+  auto avgbalance_idx = avgbalance.get_index<name("avgbalance")>();
+
+  vector<name> delegates;
+
+  auto iter = avgbalance_idx.rbegin(); 
+  for(int i = 0; i < 5 && iter != avgbalance_idx.rend(); ++i, ++iter)
+  {
+    delegates.push_back(iter->user);
+  }
+
+  // Clear the council table
+  for (auto iterdel = council.begin(); iterdel != council.end();) 
+  {
+    council.erase(iterdel++);
+  }
+
+  // Populate council table
+  for (const auto& delegate : delegates)
+  {
+    council.emplace(_self, [&](auto &a) { a.delegate = delegate; });
+  }
+
+  vector<name> alphabetically_ordered_delegates;
+
+  for (auto iter = council.begin(); iter != council.end(); iter++) 
+  {
+    alphabetically_ordered_delegates.push_back(iter->delegate);
+  }
+
+  authority contract_authority;
+
+  vector<permission_level_weight> accounts;
+  for (const auto& delegate : alphabetically_ordered_delegates)
+  {
+    accounts.push_back({.permission = permission_level{delegate, "active"_n}, .weight = (uint16_t)1});
+  }
+
+  contract_authority.threshold = 4;
+  contract_authority.keys = {};
+  contract_authority.accounts = accounts;
+  contract_authority.waits = {};
+
+  action(
+      permission_level{_self, name("owner")}, name("eosio"), name("updateauth"),
+      std::make_tuple(_self, name("active"), name("owner"), contract_authority)
+  ).send();
+}
+
+
 void zeos1fractal::testshuffle()
 {
     vector<uint64_t> v = {1, 2, 3, 4, 5, 6, 7, 8, 9};

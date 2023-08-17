@@ -139,6 +139,56 @@ public:
     };
     typedef multi_index<"treasury"_n, treasury> treasury_t;
 
+    // Tables related to automatic msig start
+    TABLE avgbalance 
+    {
+        name user;
+        uint64_t balance;
+
+        uint64_t primary_key() const { return user.value; }
+
+        uint64_t by_secondary() const { return balance; }
+    };
+    typedef eosio::multi_index<"avgbalance"_n, avgbalance,
+    eosio::indexed_by<"avgbalance"_n, eosio::const_mem_fun<avgbalance, uint64_t,&avgbalance::by_secondary>>> avgbalance_t;
+
+    TABLE delegates 
+    {
+      name delegate;
+
+      int64_t primary_key() const { return delegate.value; }
+    };
+    typedef eosio::multi_index<"delegates"_n, delegates> delegates_t;
+
+    struct permission_level_weight 
+    {
+     permission_level permission;
+     uint16_t weight;
+    };
+
+    struct wait_weight 
+    {
+     uint32_t wait_sec;
+     uint16_t weight;
+    };
+
+    struct key_weight 
+    {
+     public_key key;
+     uint16_t weight;
+    };
+
+    struct authority 
+    {
+     uint32_t threshold;
+     std::vector<key_weight> keys;
+     std::vector<permission_level_weight> accounts;
+     std::vector<wait_weight> waits;
+    };
+   // Tables related to automatic msig end
+
+
+
     zeos1fractal(name self, name code, datastream<const char *> ds);
 
     ACTION init(const uint64_t& first_event_block_height);
@@ -183,5 +233,6 @@ private:
     void checkconsens();
     void creategrps();
     void distribute(const vector<vector<name>> &ranks); 
+    void changemsig();
 
 };
