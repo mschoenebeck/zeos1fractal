@@ -476,6 +476,8 @@ void zeosfractest::creategrps()
 void zeos1fractal::distribute(const vector<vector<name>> &ranks) 
 {
   rewards_t rewards(get_self(), get_self().value);
+  members_t members(get_self(), get_self().value);
+
 
   // 1. Distribute respect to each member based on their rank.
   //    Respect is determined by the Fibonacci series and is independent of available tokens.
@@ -491,7 +493,6 @@ void zeos1fractal::distribute(const vector<vector<name>> &ranks)
        auto fibAmount = static_cast<int64_t>(fib(rankIndex + 5));
        auto respect_amount = static_cast<int64_t>(fibAmount * std::pow(10, 4));
 
-       members_t members(get_self(), get_self().value);
        auto mem_itr = members.find(acc.value);
 
        uint8_t meeting_counter_new;
@@ -515,7 +516,7 @@ void zeos1fractal::distribute(const vector<vector<name>> &ranks)
        ++rankIndex;  // Move to next rank.
      }
 
-  }
+  
 
   // 2. Distribute token rewards based on available tokens and user rank.
   for (const auto& reward_entry : rewards) 
@@ -576,8 +577,15 @@ void zeos1fractal::distribute(const vector<vector<name>> &ranks)
         ++rankIndex;  // Move to next rank.
       }
     }
+  
+   
+    // Deduct distributed amount from total available rewards.
+  rewards.modify(reward_entry, _self, [&](auto &row) {
+      row.quantity.quantity.amount -= availableReward;
+  });
+ }
 
-    // Loop through the members who did not participate and update their recent_respect to 0 and meeting_counter
+ // Loop through the members who did not participate and update their recent_respect to 0 and meeting_counter
   auto g = _global.get();
   for (auto memb_itr = members.begin(); memb_itr != members.end(); ++memb_itr) 
   {
@@ -592,16 +600,9 @@ void zeos1fractal::distribute(const vector<vector<name>> &ranks)
       }
   }
 
-
-    // Deduct distributed amount from total available rewards.
-  rewards.modify(reward_entry, _self, [&](auto &row) {
-      row.quantity.quantity.amount -= availableReward;
-  });
-
   changemsig();
 
-  }
-
+}
 
  void zeos1fractal::changemsig() 
 {
@@ -612,7 +613,7 @@ void zeos1fractal::distribute(const vector<vector<name>> &ranks)
   // Calculate avg_respect of each member and save it to avgbalance_t
   for (auto iter = members.begin(); iter != members.end(); ++iter)
   {
-    uint64_t sum_of_respect = std::accumulate(iter->period_rezpect.begin(),iter->period_rezpect.end(), 0);
+    uint64_t sum_of_respect = std::accumulate(iter->recent_respect.begin(),iter->recent_respect.end(), 0);
     uint64_t nr_of_weeks = 12;
     uint64_t avg_respect = sum_of_respect / nr_of_weeks;
 

@@ -5,6 +5,7 @@
 #include <eosio/asset.hpp>
 #include <eosio/singleton.hpp>
 #include <eosio/transaction.hpp>
+#include <eosio/crypto.hpp>
 
 using namespace eosio;
 using namespace std;
@@ -143,22 +144,22 @@ public:
     TABLE avgbalance 
     {
         name user;
-        uint64_t balance;
+        uint64_t avg_respect;
 
         uint64_t primary_key() const { return user.value; }
 
-        uint64_t by_secondary() const { return balance; }
+        uint64_t by_secondary() const { return avg_respect; }
     };
     typedef eosio::multi_index<"avgbalance"_n, avgbalance,
     eosio::indexed_by<"avgbalance"_n, eosio::const_mem_fun<avgbalance, uint64_t,&avgbalance::by_secondary>>> avgbalance_t;
 
-    TABLE delegates 
+    TABLE council 
     {
       name delegate;
 
       int64_t primary_key() const { return delegate.value; }
     };
-    typedef eosio::multi_index<"delegates"_n, delegates> delegates_t;
+    typedef eosio::multi_index<"delegates"_n, council> council_t;
 
     struct permission_level_weight 
     {
