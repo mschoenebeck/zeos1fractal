@@ -489,34 +489,34 @@ void zeos1fractal::distribute(const vector<vector<name>> &ranks)
         size_t group_size = rank.size();
         auto rankIndex = 6 - group_size;
 
-    for (const auto &acc : rank)
-    {
-        // Calculate respect based on the Fibonacci series.
-        auto fibAmount = static_cast<int64_t>(fib(rankIndex + 5));
-        auto respect_amount = static_cast<int64_t>(fibAmount * pow(10, 4));
-
-        auto mem_itr = members.find(acc.value);
-
-        uint8_t meeting_counter_new;
-
-        if (mem_itr->meeting_counter == 12)
+        for (const auto &acc : rank)
         {
-            meeting_counter_new = 0;
-        }
-        else
-        {
-            meeting_counter_new = mem_itr->meeting_counter + 1;
-        }
+            // Calculate respect based on the Fibonacci series.
+            auto fibAmount = static_cast<int64_t>(fib(rankIndex + 5));
+            auto respect_amount = static_cast<int64_t>(fibAmount * pow(10, 4));
 
-        members.modify(mem_itr, _self, [&](auto &row) {
-            row.respect += respect_amount;
-            row.recent_respect[mem_itr->meeting_counter] = respect_amount;
-            row.meeting_counter = meeting_counter_new;
-        });
-      
-       ++rankIndex;  // Move to next rank.
-     }
-   }
+            auto mem_itr = members.find(acc.value);
+
+            uint8_t meeting_counter_new;
+
+            if (mem_itr->meeting_counter == 12)
+            {
+                meeting_counter_new = 0;
+            }
+            else
+            {
+                meeting_counter_new = mem_itr->meeting_counter + 1;
+            }
+
+            members.modify(mem_itr, _self, [&](auto &row) {
+                row.respect += respect_amount;
+                row.recent_respect[mem_itr->meeting_counter] = respect_amount;
+                row.meeting_counter = meeting_counter_new;
+            });
+        
+            ++rankIndex;  // Move to next rank.
+        }
+    }
   
 
     // 2. Distribute token rewards based on available tokens and user rank.
