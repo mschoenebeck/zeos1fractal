@@ -16,9 +16,9 @@ void zeos1fractal::init(const uint64_t &first_event_block_height)
     _global.set({
         STATE_IDLE,
         0,
-        first_event_block_height,
-        5400,   // 45 min
-        1800,   // 15 min
+        first_event_block_height == 0 ? current_block_number() + 500 : first_event_block_height,
+        360,    //  3 min
+        1200,   // 10 min
     }, _self);
 }
 
