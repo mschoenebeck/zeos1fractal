@@ -182,7 +182,7 @@ public:
     };
     typedef multi_index<"treasury"_n, treasury> treasury_t;
 
-    TABLE council 
+    TABLE council
     {
         name delegate;
 
@@ -196,19 +196,19 @@ public:
         uint16_t weight;
     };
 
-    struct wait_weight 
+    struct wait_weight
     {
         uint32_t wait_sec;
         uint16_t weight;
     };
 
-    struct key_weight 
+    struct key_weight
     {
         public_key key;
         uint16_t weight;
     };
 
-    struct authority 
+    struct authority
     {
         uint32_t threshold;
         std::vector<key_weight> keys;

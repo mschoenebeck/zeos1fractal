@@ -110,6 +110,9 @@ void zeos1fractal::signup(
         row.profile_why = why;
         row.profile_about = about;
         row.profile_links = links;
+        row.recent_respect = deque<uint64_t>();
+        for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
+        row.avg_respect = 0;
     });
 }
 
