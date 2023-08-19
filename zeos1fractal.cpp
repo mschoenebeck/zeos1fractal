@@ -55,14 +55,14 @@ void zeos1fractal::changestate()
             g.next_event_block_height = g.next_event_block_height + 1209600; // add one week of blocks
             g.event_count++;
             
-            if (g.global_meeting_counter == 12) 
-            {
-              g.global_meeting_counter = 0;
-            } 
-            else 
-            {
-              g.global_meeting_counter++;
-            }
+            //if (g.global_meeting_counter == 12) 
+            //{
+            //  g.global_meeting_counter = 0;
+            //} 
+            //else 
+            //{
+            //  g.global_meeting_counter++;
+            //}
             
             check_consensus(); //rename this to reflect all the actions that happen in sequence 
               
@@ -479,7 +479,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
 {
     rewards_t rewards(get_self(), get_self().value);
     members_t members(get_self(), get_self().value);
-
+    map<name, bool> attendees;
 
     // 1. Distribute respect to each member based on their rank.
     //    Respect is determined by the Fibonacci series and is independent of available tokens.
@@ -497,22 +497,24 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
 
             auto mem_itr = members.find(acc.value);
 
-            uint8_t meeting_counter_new;
-
-            if (mem_itr->meeting_counter == 12)
-            {
-                meeting_counter_new = 0;
-            }
-            else
-            {
-                meeting_counter_new = mem_itr->meeting_counter + 1;
-            }
+            //uint8_t meeting_counter_new;
+            //if (mem_itr->meeting_counter == 12)
+            //{
+            //    meeting_counter_new = 0;
+            //}
+            //else
+            //{
+            //    meeting_counter_new = mem_itr->meeting_counter + 1;
+            //}
 
             members.modify(mem_itr, _self, [&](auto &row) {
                 row.respect += respect_amount;
-                row.recent_respect[mem_itr->meeting_counter] = respect_amount;
-                row.meeting_counter = meeting_counter_new;
+                //row.recent_respect[mem_itr->meeting_counter] = respect_amount;
+                row.recent_respect.push_front(respect_amount);
+                row.recent_respect.pop_back();
+                //row.meeting_counter = meeting_counter_new;
             });
+            attendees[mem_itr->user] = true;
         
             ++rankIndex;  // Move to next rank.
         }
@@ -589,12 +591,16 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
     for (auto memb_itr = members.begin(); memb_itr != members.end(); ++memb_itr)
     {
         // Check if member's meeting_counter is different from global_meeting_counter
-        if (memb_itr->meeting_counter != g.global_meeting_counter)
+        //if (memb_itr->meeting_counter != g.global_meeting_counter)
+        // Check if this member attended this meeting
+        if(attendees.count(memb_itr->user) == 0)
         {
             // Modify the member's row
             members.modify(memb_itr, get_self(), [&](auto &row) {
-                row.recent_respect[memb_itr->meeting_counter] = 0;
-                row.meeting_counter = g.global_meeting_counter;
+                //row.recent_respect[memb_itr->meeting_counter] = 0;
+                row.recent_respect.push_front(0);
+                row.recent_respect.pop_back();
+                //row.meeting_counter = g.global_meeting_counter;
             });
         }
     }

@@ -98,7 +98,7 @@ public:
         uint64_t participate_duration;
         uint64_t rooms_duration;
         uint8_t fib_offset; 
-        uint8_t global_meeting_counter;
+        //uint8_t global_meeting_counter;
     };
     singleton<"globalv2"_n, globalv2> _global;
 
@@ -112,8 +112,9 @@ public:
         string profile_why;                 // Why do you want to be part of the ZEOS fractal?
         string profile_about;               // A few words about yourself
         map<name, string> profile_links;    // for instance: twitter.com => @mschoenebeck1 or SSH => ssh-rsa AAAAB3NzaC1yc2E
-        vector<uint64_t> recent_respect;    // each element contains weekly REZPECT earned
-        uint8_t meeting_counter;            // shows which element in the vector to adjust
+        //vector<uint64_t> recent_respect;    // each element contains weekly REZPECT earned
+        deque<uint64_t> recent_respect;    // each element contains weekly REZPECT earned
+        //uint8_t meeting_counter;            // shows which element in the vector to adjust
         uint64_t avg_respect;                // this determines who gets to the msig
 
 
