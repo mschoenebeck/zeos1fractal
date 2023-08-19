@@ -1,4 +1,5 @@
 #include "zeos1fractal.hpp"
+#include <cmath>
 
 zeos1fractal::zeos1fractal(
     name self,
@@ -187,7 +188,7 @@ void zeos1fractal::submitranks(
     bool exists = false;
     for (const name& room_user : room_iter.users) 
     {
-        if (room_user == user) 
+        if (room_user == user)
         {
             exists = true;
             break;
@@ -203,17 +204,17 @@ void zeos1fractal::submitranks(
     // Check if all the accounts in the rankings are part of the room
     for (const name& ranked_user : rankings)
     {
-        auto iter = std::find(room_iter.users.begin(), room_iter.users.end(), ranked_user);
+        auto iter = find(room_iter.users.begin(), room_iter.users.end(), ranked_user);
         check(iter != room_iter.users.end(), ranked_user.to_string() + " not found in the group.");
     }
 
     // Check that no account is listed more than once in rankings
-    std::set<name> unique_ranked_accounts(rankings.begin(), rankings.end());
+    set<name> unique_ranked_accounts(rankings.begin(), rankings.end());
     check(rankings.size() == unique_ranked_accounts.size(), "Duplicate accounts found in rankings.");
 
-    for (const name& ranked_user : rankings) 
+    for (const name& ranked_user : rankings)
     {
-        std::string rankname = ranked_user.to_string();
+        string rankname = ranked_user.to_string();
         check(is_account(ranked_user), rankname + " account does not exist.");
     }
 
@@ -223,11 +224,11 @@ void zeos1fractal::submitranks(
     {
         rankings_table.emplace(user, [&](auto &row) {
             row.user = user;
-            row.room = group_id; 
+            row.room = group_id;
             row.rankings = rankings;
         });
-    } 
-    else 
+    }
+    else
     {
         check(false, "You can vote only once my friend.");
     }
@@ -301,75 +302,75 @@ void zeos1fractal::assetin(
 
 void zeos1fractal::checkconsens()
 {
-  // Access the rankings table (fuck it let's delete rankings after each election, we don't need it)
-  rankings_t rankings_table(_self, _self.value);
+    // Access the rankings table (fuck it let's delete rankings after each election, we don't need it)
+    rankings_t rankings_table(_self, _self.value);
 
-  // Use a secondary index to sort by room
-  auto idx = rankings_table.get_index<"bysecondary"_n>();
+    // Use a secondary index to sort by room
+    auto idx = rankings_table.get_index<"bysecondary"_n>();
 
-  // Store results of consensus rankings
-  std::vector<std::vector<eosio::name>> allRankings;
+    // Store results of consensus rankings
+    vector<vector<name>> allRankings;
 
-  // Iterate through rankings table by group, using the secondary index
-  auto itr = idx.begin();
-  while (itr != idx.end()) 
-  {
-     uint64_t current_group = itr->room;
-
-     // Store all submissions for the current group
-     std::vector<std::vector<eosio::name>> all_submissions;
-
-    // Aggregate all submissions for the current group
-     while (itr != idx.end() && itr->room == current_group) 
-     {
-        all_submissions.push_back(itr->rankings);
-        ++itr;
-     }
-
-    std::vector<eosio::name> consensus_ranking;
-    bool has_consensus = true;
-    size_t total_submissions = all_submissions.size();
-
-    // Check consensus for this group
-    for (size_t i = 0; i < all_submissions[0].size(); ++i) 
+    // Iterate through rankings table by group, using the secondary index
+    auto itr = idx.begin();
+    while (itr != idx.end())
     {
-       std::map<eosio::name, uint64_t> counts;
-       eosio::name most_common_name;
-       uint64_t most_common_count = 0;
+        uint64_t current_group = itr->room;
 
-      // Count occurrences and identify the most common account at the same time
-       for (const auto &submission : all_submissions) 
-       {
-         counts[submission[i]]++;
+        // Store all submissions for the current group
+        vector<vector<name>> all_submissions;
 
-        // Update most_common_name if necessary
-        if (counts[submission[i]] > most_common_count) 
+        // Aggregate all submissions for the current group
+        while (itr != idx.end() && itr->room == current_group)
         {
-           most_common_name = submission[i];
-           most_common_count = counts[submission[i]];
+            all_submissions.push_back(itr->rankings);
+            ++itr;
         }
-       }
 
-      // Check consensus for the current rank
-       if (most_common_count * 3 >= total_submissions * 2) 
-       {
-         consensus_ranking.push_back(most_common_name);
-       } 
-       else 
-       {
-         has_consensus = false;
-         break;
-       }
-    }
+        vector<name> consensus_ranking;
+        bool has_consensus = true;
+        size_t total_submissions = all_submissions.size();
 
-    // Store consensus ranking for the group if consensus is achieved
-    if (has_consensus) 
-    {
-       allRankings.push_back(consensus_ranking);
+        // Check consensus for this group
+        for (size_t i = 0; i < all_submissions[0].size(); ++i)
+        {
+            map<name, uint64_t> counts;
+            name most_common_name;
+            uint64_t most_common_count = 0;
+
+            // Count occurrences and identify the most common account at the same time
+            for (const auto &submission : all_submissions)
+            {
+                counts[submission[i]]++;
+
+                // Update most_common_name if necessary
+                if (counts[submission[i]] > most_common_count)
+                {
+                most_common_name = submission[i];
+                most_common_count = counts[submission[i]];
+                }
+            }
+
+            // Check consensus for the current rank
+            if (most_common_count * 3 >= total_submissions * 2)
+            {
+                consensus_ranking.push_back(most_common_name);
+            }
+            else
+            {
+                has_consensus = false;
+                break;
+            }
+        }
+
+        // Store consensus ranking for the group if consensus is achieved
+        if (has_consensus)
+        {
+            allRankings.push_back(consensus_ranking);
+        }
     }
-  }
-   // allRankings is passed to the function to distribute RESPECT and make other tokens claimable
-   distribute(allRankings);
+    // allRankings is passed to the function to distribute RESPECT and make other tokens claimable
+    distribute(allRankings);
 }
 
 void zeos1fractal::creategrps() 
@@ -381,8 +382,8 @@ void zeos1fractal::creategrps()
     // Iterate over each participant in the table
     for (const auto& participant : participants) 
     {
-      // Add each participant's name to the all_participants vector
-      all_participants.push_back(participant.user);
+        // Add each participant's name to the all_participants vector
+        all_participants.push_back(participant.user);
     }
 
     // Shuffle the all_participants vector
@@ -394,46 +395,48 @@ void zeos1fractal::creategrps()
     vector<uint8_t> group_sizes;
 
     // First part: hardcoded groups up to 20
-    if (num_participants <= 20) 
+    if (num_participants <= 20)
     {
-      if (num_participants == 3) group_sizes = {3};
-      else if (num_participants == 4) group_sizes = {4};
-      else if (num_participants == 5) group_sizes = {5};
-      else if (num_participants == 6) group_sizes = {6};
-      else if (num_participants == 7) group_sizes = {3, 4};
-      else if (num_participants == 8) group_sizes = {4, 4};
-      else if (num_participants == 9) group_sizes = {5, 4};
-      else if (num_participants == 10) group_sizes = {5, 5};
-      else if (num_participants == 11) group_sizes = {5, 6};
-      else if (num_participants == 12) group_sizes = {6, 6};
-      else if (num_participants == 13) group_sizes = {5, 4, 4};
-      else if (num_participants == 14) group_sizes = {5, 5, 4};
-      else if (num_participants == 15) group_sizes = {5, 5, 5};
-      else if (num_participants == 16) group_sizes = {6, 5, 5};
-      else if (num_participants == 17) group_sizes = {6, 6, 5};
-      else if (num_participants == 18) group_sizes = {6, 6, 6};
-      else if (num_participants == 19) group_sizes = {5, 5, 5, 4};
-      else if (num_participants == 20) group_sizes = {5, 5, 5, 5};
+        if (num_participants == 3) group_sizes = {3};
+        else if (num_participants == 4) group_sizes = {4};
+        else if (num_participants == 5) group_sizes = {5};
+        else if (num_participants == 6) group_sizes = {6};
+        else if (num_participants == 7) group_sizes = {3, 4};
+        else if (num_participants == 8) group_sizes = {4, 4};
+        else if (num_participants == 9) group_sizes = {5, 4};
+        else if (num_participants == 10) group_sizes = {5, 5};
+        else if (num_participants == 11) group_sizes = {5, 6};
+        else if (num_participants == 12) group_sizes = {6, 6};
+        else if (num_participants == 13) group_sizes = {5, 4, 4};
+        else if (num_participants == 14) group_sizes = {5, 5, 4};
+        else if (num_participants == 15) group_sizes = {5, 5, 5};
+        else if (num_participants == 16) group_sizes = {6, 5, 5};
+        else if (num_participants == 17) group_sizes = {6, 6, 5};
+        else if (num_participants == 18) group_sizes = {6, 6, 6};
+        else if (num_participants == 19) group_sizes = {5, 5, 5, 4};
+        else if (num_participants == 20) group_sizes = {5, 5, 5, 5};
     }
-        // Second part: generic algorithm for 20+ participants
-    else 
+
+    // Second part: generic algorithm for 20+ participants
+    else
     {
         // As per the constraint, we start with groups of 6
         uint8_t count_of_fives = 0;
-        while (num_participants > 0) 
+        while (num_participants > 0)
+        {
+            if (num_participants % 6 != 0 && count_of_fives < 5)
             {
-                if (num_participants % 6 != 0 && count_of_fives < 5) 
-                    {
-                    group_sizes.push_back(5);
-                    num_participants -= 5;
-                    count_of_fives++;
-                    } 
-               else {
-                    group_sizes.push_back(6);
-                    num_participants -= 6;
-                    if (count_of_fives == 5) count_of_fives = 0;
-                    }
-             }
+                group_sizes.push_back(5);
+                num_participants -= 5;
+                count_of_fives++;
+            }
+            else
+            {
+                group_sizes.push_back(6);
+                num_participants -= 6;
+                if (count_of_fives == 5) count_of_fives = 0;
+            }
+        }
     }
 
 
@@ -449,231 +452,229 @@ void zeos1fractal::creategrps()
 
 
     // Iterate over the group sizes to create and populate rooms
-    for (uint8_t size : group_sizes) 
+    for (uint8_t size : group_sizes)
     {
-       // A temporary vector to store the users in the current room
-       vector<name> users_in_room;
+        // A temporary vector to store the users in the current room
+        vector<name> users_in_room;
 
-       // Iterate until the desired group size is reached or until all participants have been processed
-       for (uint8_t j = 0; j < size && iter != all_participants.end(); j++, ++iter) 
-       {
-          // Add the current participant to the users_in_room vector
-          users_in_room.push_back(*iter);
-       }
+        // Iterate until the desired group size is reached or until all participants have been processed
+        for (uint8_t j = 0; j < size && iter != all_participants.end(); j++, ++iter)
+        {
+            // Add the current participant to the users_in_room vector
+            users_in_room.push_back(*iter);
+        }
 
-       // Insert a new room record into the rooms table
-       rooms.emplace(_self, [&](auto& r) {
-        // Assign a unique ID to the room and prepare for the next room's ID
-         r.id = room_id++;
-         // Assign the users_in_room vector to the current room's user list
-         r.users = users_in_room;
-       });
+        // Insert a new room record into the rooms table
+        rooms.emplace(_self, [&](auto& r) {
+            // Assign a unique ID to the room and prepare for the next room's ID
+            r.id = room_id++;
+            // Assign the users_in_room vector to the current room's user list
+            r.users = users_in_room;
+        });
     }
 
 }
 
-void zeos1fractal::distribute(const vector<vector<name>> &ranks) 
+void zeos1fractal::distribute(const vector<vector<name>> &ranks)
 {
-  rewards_t rewards(get_self(), get_self().value);
-  members_t members(get_self(), get_self().value);
+    rewards_t rewards(get_self(), get_self().value);
+    members_t members(get_self(), get_self().value);
 
 
-  // 1. Distribute respect to each member based on their rank.
-  //    Respect is determined by the Fibonacci series and is independent of available tokens.
-  for (const auto &rank : ranks) 
-  {
-     // Determine the initial rank index based on group size.
-     size_t group_size = rank.size();
-     auto rankIndex = 6 - group_size;
+    // 1. Distribute respect to each member based on their rank.
+    //    Respect is determined by the Fibonacci series and is independent of available tokens.
+    for (const auto &rank : ranks)
+    {
+        // Determine the initial rank index based on group size.
+        size_t group_size = rank.size();
+        auto rankIndex = 6 - group_size;
 
-     for (const auto &acc : rank) 
-     {
-       // Calculate respect based on the Fibonacci series.
-       auto fibAmount = static_cast<int64_t>(fib(rankIndex + 5));
-       auto respect_amount = static_cast<int64_t>(fibAmount * std::pow(10, 4));
+    for (const auto &acc : rank)
+    {
+        // Calculate respect based on the Fibonacci series.
+        auto fibAmount = static_cast<int64_t>(fib(rankIndex + 5));
+        auto respect_amount = static_cast<int64_t>(fibAmount * pow(10, 4));
 
-       auto mem_itr = members.find(acc.value);
+        auto mem_itr = members.find(acc.value);
 
-       uint8_t meeting_counter_new;
+        uint8_t meeting_counter_new;
 
-       if (mem_itr->meeting_counter == 12) 
-       {
-         meeting_counter_new = 0;
-       } 
-       else 
-       {
-         meeting_counter_new = mem_itr->meeting_counter + 1;
-       }
+        if (mem_itr->meeting_counter == 12)
+        {
+            meeting_counter_new = 0;
+        }
+        else
+        {
+            meeting_counter_new = mem_itr->meeting_counter + 1;
+        }
 
-         members.modify(mem_itr, _self, [&](auto &row) {
-           row.respect += respect_amount;
-           row.recent_respect[mem_itr->meeting_counter] = respect_amount;
-           row.meeting_counter = meeting_counter_new;
-         });
+        members.modify(mem_itr, _self, [&](auto &row) {
+            row.respect += respect_amount;
+            row.recent_respect[mem_itr->meeting_counter] = respect_amount;
+            row.meeting_counter = meeting_counter_new;
+        });
       
        ++rankIndex;  // Move to next rank.
      }
    }
   
 
-  // 2. Distribute token rewards based on available tokens and user rank.
-  for (const auto& reward_entry : rewards) 
-  {
-    auto availableReward = reward_entry.quantity.quantity.amount;
-
-    // Skip if no tokens are available for distribution.
-    if (availableReward <= 0) 
+    // 2. Distribute token rewards based on available tokens and user rank.
+    for (const auto& reward_entry : rewards)
     {
-      continue;  
-    }
+        auto availableReward = reward_entry.quantity.quantity.amount;
 
-    // Calculate multiplier using polynomial coefficients and total available reward.
-    auto coeffSum = std::accumulate(std::begin(polyCoeffs), std::end(polyCoeffs), 0.0);
-    auto multiplier = static_cast<double>(availableReward) / (ranks.size() * coeffSum);
-
-    // Determine token rewards for each rank.
-    std::vector<int64_t> tokenRewards;
-    std::transform(std::begin(polyCoeffs), std::end(polyCoeffs),
-                   std::back_inserter(tokenRewards), [&](const auto &c) {
-                       return static_cast<int64_t>(multiplier * c);
-                   });
-
-    // Skip if any rank gets 0 tokens.
-    if (std::any_of(tokenRewards.begin(), tokenRewards.end(), [](int64_t val) { return val == 0; })) 
-    {
-      continue;
-    }
-
-    // Update or add claimable tokens for each member based on their rank.
-    for (const auto &rank : ranks) 
-    {
-      size_t group_size = rank.size();
-      auto rankIndex = 6 - group_size;
-      for (const auto &acc : rank) 
-      {
-        auto tokenAmount = tokenRewards[rankIndex];
-
-        if (tokenAmount > 0)  // Only proceed if the member should get tokens.
+        // Skip if no tokens are available for distribution.
+        if (availableReward <= 0)
         {
-          claim_t claimables(get_self(), acc.value);
-          auto claim_itr = claimables.find(reward_entry.quantity.quantity.symbol.code().raw());
-
-          if (claim_itr != claimables.end())  // If member has claimables, update them.
-          {
-            claimables.modify(claim_itr, _self, [&](auto &row) {
-              row.quantity.quantity.amount += tokenAmount;
-            });
-          } 
-          else  // Otherwise, add new claimable.
-          {
-            claimables.emplace(_self, [&](auto &row) {
-              row.quantity.quantity = asset{tokenAmount, reward_entry.quantity.quantity.symbol};
-            });
-          }
+            continue;
         }
 
-        ++rankIndex;  // Move to next rank.
-      }
+        // Calculate multiplier using polynomial coefficients and total available reward.
+        auto coeffSum = accumulate(begin(polyCoeffs), end(polyCoeffs), 0.0);
+        auto multiplier = static_cast<double>(availableReward) / (ranks.size() * coeffSum);
+
+        // Determine token rewards for each rank.
+        vector<int64_t> tokenRewards;
+        transform(begin(polyCoeffs), end(polyCoeffs), back_inserter(tokenRewards), [&](const auto &c) {
+            return static_cast<int64_t>(multiplier * c);
+        });
+
+        // Skip if any rank gets 0 tokens.
+        if (any_of(tokenRewards.begin(), tokenRewards.end(), [](int64_t val) { return val == 0; }))
+        {
+            continue;
+        }
+
+        // Update or add claimable tokens for each member based on their rank.
+        for (const auto &rank : ranks)
+        {
+            size_t group_size = rank.size();
+            auto rankIndex = 6 - group_size;
+            for (const auto &acc : rank)
+            {
+                auto tokenAmount = tokenRewards[rankIndex];
+
+                if (tokenAmount > 0)  // Only proceed if the member should get tokens.
+                {
+                    claim_t claimables(get_self(), acc.value);
+                    auto claim_itr = claimables.find(reward_entry.quantity.quantity.symbol.code().raw());
+
+                    if (claim_itr != claimables.end())  // If member has claimables, update them.
+                    {
+                        claimables.modify(claim_itr, _self, [&](auto &row) {
+                            row.quantity.quantity.amount += tokenAmount;
+                        });
+                    }
+                    else  // Otherwise, add new claimable.
+                    {
+                        claimables.emplace(_self, [&](auto &row) {
+                            row.quantity.quantity = asset{tokenAmount, reward_entry.quantity.quantity.symbol};
+                        });
+                    }
+                }
+
+                ++rankIndex;  // Move to next rank.
+            }
+        }
+
+        // Deduct distributed amount from total available rewards.
+        rewards.modify(reward_entry, _self, [&](auto &row) {
+            row.quantity.quantity.amount -= availableReward;
+        });
     }
-  
-   
-    // Deduct distributed amount from total available rewards.
-  rewards.modify(reward_entry, _self, [&](auto &row) {
-      row.quantity.quantity.amount -= availableReward;
-  });
- }
 
- // Loop through the members who did not participate and update their recent_respect to 0 and meeting_counter
-  auto g = _global.get();
-  for (auto memb_itr = members.begin(); memb_itr != members.end(); ++memb_itr) 
-  {
-      // Check if member's meeting_counter is different from global_meeting_counter
-      if (memb_itr->meeting_counter != g.global_meeting_counter) 
-      {
-          // Modify the member's row
-          members.modify(memb_itr, get_self(), [&](auto &row) {
-              row.recent_respect[memb_itr->meeting_counter] = 0;
-              row.meeting_counter = g.global_meeting_counter;
-          });
-      }
-  }
+    // Loop through the members who did not participate and update their recent_respect to 0 and meeting_counter
+    auto g = _global.get();
+    for (auto memb_itr = members.begin(); memb_itr != members.end(); ++memb_itr)
+    {
+        // Check if member's meeting_counter is different from global_meeting_counter
+        if (memb_itr->meeting_counter != g.global_meeting_counter)
+        {
+            // Modify the member's row
+            members.modify(memb_itr, get_self(), [&](auto &row) {
+                row.recent_respect[memb_itr->meeting_counter] = 0;
+                row.meeting_counter = g.global_meeting_counter;
+            });
+        }
+    }
 
-  changemsig();
+    changemsig();
 
 }
 
- void zeos1fractal::changemsig() 
+ void zeos1fractal::changemsig()
 {
-  members_t members(get_self(), get_self().value);
-  council_t council(_self, _self.value);
+    members_t members(get_self(), get_self().value);
+    council_t council(_self, _self.value);
 
-  // Calculate avg_respect of each member and save it to members_t
-  for (auto iter = members.begin(); iter != members.end(); ++iter)
-  {
-    uint64_t sum_of_respect = std::accumulate(iter->recent_respect.begin(),iter->recent_respect.end(), 0);
-    uint64_t nr_of_weeks = 12;
-    uint64_t avg_respect = sum_of_respect / nr_of_weeks;
+    // Calculate avg_respect of each member and save it to members_t
+    for (auto iter = members.begin(); iter != members.end(); ++iter)
+    {
+        uint64_t sum_of_respect = accumulate(iter->recent_respect.begin(),iter->recent_respect.end(), 0);
+        uint64_t nr_of_weeks = 12;
+        uint64_t avg_respect = sum_of_respect / nr_of_weeks;
 
-    auto to = members.find(iter->user.value);
-    if (to == members.end()) 
-    {
-      members.emplace(_self, [&](auto &a) {
-        a.user = iter->user;
-        a.avg_respect = avg_respect;
-      });
-    } 
-    else 
-    {
-      members.modify(to, _self, [&](auto &a) { a.avg_respect = avg_respect; });
+        auto to = members.find(iter->user.value);
+        if (to == members.end())
+        {
+            members.emplace(_self, [&](auto &a) {
+                a.user = iter->user;
+                a.avg_respect = avg_respect;
+            });
+        }
+        else
+        {
+            members.modify(to, _self, [&](auto &a) { a.avg_respect = avg_respect; });
+        }
     }
-  }
 
-  auto members_idx = members.get_index<name("memberv2")>();
+    auto members_idx = members.get_index<name("memberv2")>();
 
-  vector<name> delegates;
+    vector<name> delegates;
 
-  auto iter = members_idx.rbegin(); 
-  for(int i = 0; i < 5 && iter != members_idx.rend(); ++i, ++iter)
-  {
-    delegates.push_back(iter->user);
-  }
+    auto iter = members_idx.rbegin();
+    for(int i = 0; i < 5 && iter != members_idx.rend(); ++i, ++iter)
+    {
+        delegates.push_back(iter->user);
+    }
 
-  // Clear the council table
-  for (auto iterdel = council.begin(); iterdel != council.end();) 
-  {
-    council.erase(iterdel++);
-  }
+    // Clear the council table
+    for (auto iterdel = council.begin(); iterdel != council.end();)
+    {
+        council.erase(iterdel++);
+    }
 
-  // Populate council table
-  for (const auto& delegate : delegates)
-  {
-    council.emplace(_self, [&](auto &a) { a.delegate = delegate; });
-  }
+    // Populate council table
+    for (const auto& delegate : delegates)
+    {
+        council.emplace(_self, [&](auto &a) { a.delegate = delegate; });
+    }
 
-  vector<name> alphabetically_ordered_delegates;
+    vector<name> alphabetically_ordered_delegates;
 
-  for (auto iter = council.begin(); iter != council.end(); iter++) 
-  {
-    alphabetically_ordered_delegates.push_back(iter->delegate);
-  }
+    for (auto iter = council.begin(); iter != council.end(); iter++)
+    {
+        alphabetically_ordered_delegates.push_back(iter->delegate);
+    }
 
-  authority contract_authority;
+    authority contract_authority;
 
-  vector<permission_level_weight> accounts;
-  for (const auto& delegate : alphabetically_ordered_delegates)
-  {
-    accounts.push_back({.permission = permission_level{delegate, "active"_n}, .weight = (uint16_t)1});
-  }
+    vector<permission_level_weight> accounts;
+    for (const auto& delegate : alphabetically_ordered_delegates)
+    {
+        accounts.push_back({.permission = permission_level{delegate, "active"_n}, .weight = (uint16_t)1});
+    }
 
-  contract_authority.threshold = 4;
-  contract_authority.keys = {};
-  contract_authority.accounts = accounts;
-  contract_authority.waits = {};
+    contract_authority.threshold = 4;
+    contract_authority.keys = {};
+    contract_authority.accounts = accounts;
+    contract_authority.waits = {};
 
-  action(
-      permission_level{_self, name("owner")}, name("eosio"), name("updateauth"),
-      std::make_tuple(_self, name("active"), name("owner"), contract_authority)
-  ).send();
+    action(
+        permission_level{_self, name("owner")}, name("eosio"), name("updateauth"),
+        make_tuple(_self, name("active"), name("owner"), contract_authority)
+    ).send();
 }
 
 
