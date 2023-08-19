@@ -5,9 +5,24 @@
 #include <eosio/asset.hpp>
 #include <eosio/singleton.hpp>
 #include <eosio/transaction.hpp>
+#include <eosio/crypto.hpp>
 
 using namespace eosio;
 using namespace std;
+
+namespace 
+{
+//6 is maxgroupsize
+constexpr std::array<double, 6> polyCoeffs{
+    1, 1.618, 2.617924, 4.235801032, 6.85352607, 11.08900518};
+
+// Other helpers
+auto fib(uint8_t index) -> decltype(index) { //
+  return (index <= 1) ? index : fib(index - 1) + fib(index - 2);
+};
+}
+
+
 
 CONTRACT r4ndomnumb3r : public contract
 {
@@ -41,6 +56,11 @@ public:
         uint64_t next_event_block_height;
         uint64_t participate_duration;
         uint64_t rooms_duration;
+        //Needed for the REZPECT distribution, if we store it here amount of REZPECT that is being distributed could be increased by simply triggering modify action
+        //eg. if fib_offset = 6, then lowest level (Rank 1), gets 8 REZPECT (8 sixth number in the Fibonacci sequence)
+        //uint8_t fib_offset; 
+        //uint8_t global_meeting_counter;
+
     };
     singleton<"global"_n, global> _global;
 
@@ -54,6 +74,10 @@ public:
         string profile_why;                 // Why do you want to be part of the ZEOS fractal?
         string profile_about;               // A few words about yourself
         map<name, string> profile_links;    // for instance: twitter.com => @mschoenebeck1 or SSH => ssh-rsa AAAAB3NzaC1yc2E
+        //vector<uint64_t> recent_respect;  // each element contains weekly REZPECT earned
+        //uint8_t meeting_counter;          // shows which element in the vector to adjust
+        //uint64_t avg_of_recent_respect    // this determines who gets to the msig
+
 
         uint64_t primary_key() const { return user.value; }
     };
@@ -95,7 +119,8 @@ public:
         uint64_t primary_key() const { return user.value; }
         uint64_t by_secondary() const { return room; }
     };
-    typedef multi_index<"rankings"_n, ranking> rankings_t;
+    typedef eosio::multi_index<"rankings"_n, ranking, 
+    indexed_by<"bysecondary"_n, const_mem_fun<ranking, uint64_t, &ranking::by_secondary>>> rankings_t;
 
     // all rewards that get distributed in the upcoming event
     TABLE reward
@@ -114,6 +139,56 @@ public:
         uint64_t primary_key() const { return quantity.quantity.symbol.raw(); }
     };
     typedef multi_index<"treasury"_n, treasury> treasury_t;
+
+    // Tables related to automatic msig start
+    TABLE avgbalance 
+    {
+        name user;
+        uint64_t avg_respect;
+
+        uint64_t primary_key() const { return user.value; }
+
+        uint64_t by_secondary() const { return avg_respect; }
+    };
+    typedef eosio::multi_index<"avgbalance"_n, avgbalance,
+    eosio::indexed_by<"avgbalance"_n, eosio::const_mem_fun<avgbalance, uint64_t,&avgbalance::by_secondary>>> avgbalance_t;
+
+    TABLE council 
+    {
+      name delegate;
+
+      int64_t primary_key() const { return delegate.value; }
+    };
+    typedef eosio::multi_index<"delegates"_n, council> council_t;
+
+    struct permission_level_weight 
+    {
+     permission_level permission;
+     uint16_t weight;
+    };
+
+    struct wait_weight 
+    {
+     uint32_t wait_sec;
+     uint16_t weight;
+    };
+
+    struct key_weight 
+    {
+     public_key key;
+     uint16_t weight;
+    };
+
+    struct authority 
+    {
+     uint32_t threshold;
+     std::vector<key_weight> keys;
+     std::vector<permission_level_weight> accounts;
+     std::vector<wait_weight> waits;
+    };
+   // Tables related to automatic msig end
+
+
 
     zeos1fractal(name self, name code, datastream<const char *> ds);
 
@@ -155,4 +230,10 @@ private:
             my_swap(first[i], first[r]);
         }
     }
+
+    void checkconsens();
+    void creategrps();
+    void distribute(const vector<vector<name>> &ranks); 
+    void changemsig();
+
 };
