@@ -53,7 +53,7 @@ void zeos1fractal::changestate()
             g.state = STATE_IDLE;
             g.next_event_block_height = g.next_event_block_height + 1209600; // add one week of blocks
             g.event_count++;
-            /*
+            
             if (g.global_meeting_counter == 12) 
             {
               g.global_meeting_counter = 0;
@@ -62,11 +62,10 @@ void zeos1fractal::changestate()
             {
               g.global_meeting_counter++;
             }
-            */
+            
             checkconsens(); //rename this to reflect all the actions that happen in sequence 
               
             // TODO:
-            // distribute REZPECT and make tokens claimable
             // reset event tables
         }
         break;
@@ -373,10 +372,10 @@ void zeos1fractal::checkconsens()
    distribute(allRankings);
 }
 
-void zeosfractest::creategrps() 
+void zeos1fractal::creategrps() 
 {
 
-    //participants_t participants(_self, _self.value);
+    participants_t participants(_self, _self.value);
     vector<name> all_participants;
     
     // Iterate over each participant in the table
@@ -511,11 +510,10 @@ void zeos1fractal::distribute(const vector<vector<name>> &ranks)
            row.recent_respect[mem_itr->meeting_counter] = respect_amount;
            row.meeting_counter = meeting_counter_new;
          });
-      }
-
+      
        ++rankIndex;  // Move to next rank.
      }
-
+   }
   
 
   // 2. Distribute token rewards based on available tokens and user rank.
@@ -607,36 +605,35 @@ void zeos1fractal::distribute(const vector<vector<name>> &ranks)
  void zeos1fractal::changemsig() 
 {
   members_t members(get_self(), get_self().value);
-  avgbalance_t avgbalance(_self, _self.value);
   council_t council(_self, _self.value);
 
-  // Calculate avg_respect of each member and save it to avgbalance_t
+  // Calculate avg_respect of each member and save it to members_t
   for (auto iter = members.begin(); iter != members.end(); ++iter)
   {
     uint64_t sum_of_respect = std::accumulate(iter->recent_respect.begin(),iter->recent_respect.end(), 0);
     uint64_t nr_of_weeks = 12;
     uint64_t avg_respect = sum_of_respect / nr_of_weeks;
 
-    auto to = avgbalance.find(iter->user.value);
-    if (to == avgbalance.end()) 
+    auto to = members.find(iter->user.value);
+    if (to == members.end()) 
     {
-      avgbalance.emplace(_self, [&](auto &a) {
+      members.emplace(_self, [&](auto &a) {
         a.user = iter->user;
         a.avg_respect = avg_respect;
       });
     } 
     else 
     {
-      avgbalance.modify(to, _self, [&](auto &a) { a.avg_respect = avg_respect; });
+      members.modify(to, _self, [&](auto &a) { a.avg_respect = avg_respect; });
     }
   }
 
-  auto avgbalance_idx = avgbalance.get_index<name("avgbalance")>();
+  auto members_idx = members.get_index<name("memberv2")>();
 
   vector<name> delegates;
 
-  auto iter = avgbalance_idx.rbegin(); 
-  for(int i = 0; i < 5 && iter != avgbalance_idx.rend(); ++i, ++iter)
+  auto iter = members_idx.rbegin(); 
+  for(int i = 0; i < 5 && iter != members_idx.rend(); ++i, ++iter)
   {
     delegates.push_back(iter->user);
   }
