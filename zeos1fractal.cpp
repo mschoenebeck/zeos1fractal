@@ -44,7 +44,7 @@ void zeos1fractal::changestate()
             check(cbn >= g.next_event_block_height, "too early to move into ROOMS state");
             g.state = STATE_ROOMS;
 
-            creategrps();
+            create_groups();
         }
         break;
 
@@ -64,7 +64,7 @@ void zeos1fractal::changestate()
               g.global_meeting_counter++;
             }
             
-            checkconsens(); //rename this to reflect all the actions that happen in sequence 
+            check_consensus(); //rename this to reflect all the actions that happen in sequence 
               
             // TODO:
             // reset event tables
@@ -300,80 +300,7 @@ void zeos1fractal::assetin(
     }
 }
 
-void zeos1fractal::checkconsens()
-{
-    // Access the rankings table (fuck it let's delete rankings after each election, we don't need it)
-    rankings_t rankings_table(_self, _self.value);
-
-    // Use a secondary index to sort by room
-    auto idx = rankings_table.get_index<"bysecondary"_n>();
-
-    // Store results of consensus rankings
-    vector<vector<name>> allRankings;
-
-    // Iterate through rankings table by group, using the secondary index
-    auto itr = idx.begin();
-    while (itr != idx.end())
-    {
-        uint64_t current_group = itr->room;
-
-        // Store all submissions for the current group
-        vector<vector<name>> all_submissions;
-
-        // Aggregate all submissions for the current group
-        while (itr != idx.end() && itr->room == current_group)
-        {
-            all_submissions.push_back(itr->rankings);
-            ++itr;
-        }
-
-        vector<name> consensus_ranking;
-        bool has_consensus = true;
-        size_t total_submissions = all_submissions.size();
-
-        // Check consensus for this group
-        for (size_t i = 0; i < all_submissions[0].size(); ++i)
-        {
-            map<name, uint64_t> counts;
-            name most_common_name;
-            uint64_t most_common_count = 0;
-
-            // Count occurrences and identify the most common account at the same time
-            for (const auto &submission : all_submissions)
-            {
-                counts[submission[i]]++;
-
-                // Update most_common_name if necessary
-                if (counts[submission[i]] > most_common_count)
-                {
-                most_common_name = submission[i];
-                most_common_count = counts[submission[i]];
-                }
-            }
-
-            // Check consensus for the current rank
-            if (most_common_count * 3 >= total_submissions * 2)
-            {
-                consensus_ranking.push_back(most_common_name);
-            }
-            else
-            {
-                has_consensus = false;
-                break;
-            }
-        }
-
-        // Store consensus ranking for the group if consensus is achieved
-        if (has_consensus)
-        {
-            allRankings.push_back(consensus_ranking);
-        }
-    }
-    // allRankings is passed to the function to distribute RESPECT and make other tokens claimable
-    distribute(allRankings);
-}
-
-void zeos1fractal::creategrps() 
+void zeos1fractal::create_groups() 
 {
 
     participants_t participants(_self, _self.value);
@@ -473,6 +400,79 @@ void zeos1fractal::creategrps()
         });
     }
 
+}
+
+void zeos1fractal::check_consensus()
+{
+    // Access the rankings table (fuck it let's delete rankings after each election, we don't need it)
+    rankings_t rankings_table(_self, _self.value);
+
+    // Use a secondary index to sort by room
+    auto idx = rankings_table.get_index<"bysecondary"_n>();
+
+    // Store results of consensus rankings
+    vector<vector<name>> allRankings;
+
+    // Iterate through rankings table by group, using the secondary index
+    auto itr = idx.begin();
+    while (itr != idx.end())
+    {
+        uint64_t current_group = itr->room;
+
+        // Store all submissions for the current group
+        vector<vector<name>> all_submissions;
+
+        // Aggregate all submissions for the current group
+        while (itr != idx.end() && itr->room == current_group)
+        {
+            all_submissions.push_back(itr->rankings);
+            ++itr;
+        }
+
+        vector<name> consensus_ranking;
+        bool has_consensus = true;
+        size_t total_submissions = all_submissions.size();
+
+        // Check consensus for this group
+        for (size_t i = 0; i < all_submissions[0].size(); ++i)
+        {
+            map<name, uint64_t> counts;
+            name most_common_name;
+            uint64_t most_common_count = 0;
+
+            // Count occurrences and identify the most common account at the same time
+            for (const auto &submission : all_submissions)
+            {
+                counts[submission[i]]++;
+
+                // Update most_common_name if necessary
+                if (counts[submission[i]] > most_common_count)
+                {
+                most_common_name = submission[i];
+                most_common_count = counts[submission[i]];
+                }
+            }
+
+            // Check consensus for the current rank
+            if (most_common_count * 3 >= total_submissions * 2)
+            {
+                consensus_ranking.push_back(most_common_name);
+            }
+            else
+            {
+                has_consensus = false;
+                break;
+            }
+        }
+
+        // Store consensus ranking for the group if consensus is achieved
+        if (has_consensus)
+        {
+            allRankings.push_back(consensus_ranking);
+        }
+    }
+    // allRankings is passed to the function to distribute RESPECT and make other tokens claimable
+    distribute(allRankings);
 }
 
 void zeos1fractal::distribute(const vector<vector<name>> &ranks)
@@ -599,11 +599,11 @@ void zeos1fractal::distribute(const vector<vector<name>> &ranks)
         }
     }
 
-    changemsig();
+    change_msig();
 
 }
 
- void zeos1fractal::changemsig()
+ void zeos1fractal::change_msig()
 {
     members_t members(get_self(), get_self().value);
     council_t council(_self, _self.value);

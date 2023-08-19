@@ -259,8 +259,6 @@ private:
     {
         for(auto i = (last - first) - 1; i > 0; --i)
         {
-            r4ndomnumb3r::generate_action r4ndomnumb3r_generate("r4ndomnumb3r"_n, {_self, "active"_n});
-            r4ndomnumb3r_generate.send();
             rng_t rndnmbr("r4ndomnumb3r"_n, "r4ndomnumb3r"_n.value);
             checksum256 x = rndnmbr.get().value;
             uint64_t r = *reinterpret_cast<uint64_t*>(&x) % (i+1);
@@ -268,9 +266,9 @@ private:
         }
     }
 
-    void checkconsens();
-    void creategrps();
+    void create_groups();
+    void check_consensus();
     void distribute(const vector<vector<name>> &ranks); 
-    void changemsig();
+    void change_msig();
 
 };
