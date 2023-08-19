@@ -99,7 +99,6 @@ public:
         uint64_t rooms_duration;
         uint8_t fib_offset; 
         uint8_t global_meeting_counter;
-
     };
     singleton<"globalv2"_n, globalv2> _global;
 
@@ -119,9 +118,7 @@ public:
 
 
         uint64_t primary_key() const { return user.value; }
-        
         uint64_t by_secondary() const { return avg_respect; }
-
     };
     typedef eosio::multi_index<"memberv2"_n, memberv2,
     eosio::indexed_by<"memberv2"_n, eosio::const_mem_fun<memberv2, uint64_t,&memberv2::by_secondary>>> members_t;    
@@ -186,45 +183,45 @@ public:
 
     TABLE council 
     {
-      name delegate;
+        name delegate;
 
-      int64_t primary_key() const { return delegate.value; }
+        int64_t primary_key() const { return delegate.value; }
     };
     typedef eosio::multi_index<"delegates"_n, council> council_t;
 
-    struct permission_level_weight 
+    struct permission_level_weight
     {
-     permission_level permission;
-     uint16_t weight;
+        permission_level permission;
+        uint16_t weight;
     };
 
     struct wait_weight 
     {
-     uint32_t wait_sec;
-     uint16_t weight;
+        uint32_t wait_sec;
+        uint16_t weight;
     };
 
     struct key_weight 
     {
-     public_key key;
-     uint16_t weight;
+        public_key key;
+        uint16_t weight;
     };
 
     struct authority 
     {
-     uint32_t threshold;
-     std::vector<key_weight> keys;
-     std::vector<permission_level_weight> accounts;
-     std::vector<wait_weight> waits;
+        uint32_t threshold;
+        std::vector<key_weight> keys;
+        std::vector<permission_level_weight> accounts;
+        std::vector<wait_weight> waits;
     };
 
-   // Tables related to automatic msig end
-   TABLE claim 
-   {
-     extended_asset quantity;
-     uint64_t primary_key() const { return quantity.quantity.symbol.code().raw(); }
-   };
-   typedef eosio::multi_index<"claims"_n, claim> claim_t;
+    // Tables related to automatic msig end
+    TABLE claim
+    {
+        extended_asset quantity;
+        uint64_t primary_key() const { return quantity.quantity.symbol.code().raw(); }
+    };
+    typedef eosio::multi_index<"claims"_n, claim> claim_t;
 
 
     zeos1fractal(name self, name code, datastream<const char *> ds);
@@ -268,7 +265,7 @@ private:
 
     void create_groups();
     void check_consensus();
-    void distribute(const vector<vector<name>> &ranks); 
-    void change_msig();
+    void distribute_rewards(const vector<vector<name>> &ranks);
+    void update_msig();
 
 };

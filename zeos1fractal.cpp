@@ -448,8 +448,8 @@ void zeos1fractal::check_consensus()
                 // Update most_common_name if necessary
                 if (counts[submission[i]] > most_common_count)
                 {
-                most_common_name = submission[i];
-                most_common_count = counts[submission[i]];
+                    most_common_name = submission[i];
+                    most_common_count = counts[submission[i]];
                 }
             }
 
@@ -472,10 +472,10 @@ void zeos1fractal::check_consensus()
         }
     }
     // allRankings is passed to the function to distribute RESPECT and make other tokens claimable
-    distribute(allRankings);
+    distribute_rewards(allRankings);
 }
 
-void zeos1fractal::distribute(const vector<vector<name>> &ranks)
+void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
 {
     rewards_t rewards(get_self(), get_self().value);
     members_t members(get_self(), get_self().value);
@@ -599,11 +599,11 @@ void zeos1fractal::distribute(const vector<vector<name>> &ranks)
         }
     }
 
-    change_msig();
+    update_msig();
 
 }
 
- void zeos1fractal::change_msig()
+ void zeos1fractal::update_msig()
 {
     members_t members(get_self(), get_self().value);
     council_t council(_self, _self.value);
