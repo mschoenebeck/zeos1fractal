@@ -1,12 +1,32 @@
 #include <eosio/eosio.hpp>
 #include <eosio/singleton.hpp>
 #include <eosio/asset.hpp>
+#include <eosio/crypto.hpp>
 #include <numeric>
-
-
+/*
+zeosfractest::zeosfractest(
+    name self,
+    name code,
+    datastream<const char *> ds
+) : contract(self, code, ds),
+    _global(_self, _self.value)
+{}
+*/
 
 using namespace eosio;
 using namespace std;
+
+namespace {
+//6 is maxgroupsize
+constexpr std::array<double, 6> polyCoeffs{
+    1, 1.618, 2.617924, 4.235801032, 6.85352607, 11.08900518};
+
+// Other helpers
+auto fib(uint8_t index) -> decltype(index) { //
+  return (index <= 1) ? index : fib(index - 1) + fib(index - 2);
+};
+
+}
 
 CONTRACT r4ndomnumb3r : public contract
 {
@@ -22,8 +42,15 @@ public:
 CONTRACT zeosfractest : public contract {
 public:
   using contract::contract;
-
-  ACTION automvalid();
+  /*
+struct GroupRanking {
+    std::vector<eosio::name> ranking;
+  };
+  struct AllRankings {
+    std::vector<GroupRanking> allRankings;
+  };
+  */
+  //ACTION automvalid();
   ACTION insertrank(name user, uint64_t room, std::vector<name> rankings);
   ACTION populate(); // For prepopulating the rankings table
   ACTION clearranks();
@@ -31,11 +58,129 @@ public:
   ACTION deleteall(); 
   //ACTION pede(); 
   ACTION testshuffle();
+  ACTION submitranks(const name &user,
+    const uint64_t &group_id,
+    const vector<name> &rankings);
+  //ACTION distribute(const AllRankings &ranks);
+  ACTION distribute(const vector<vector<name>> &ranks);
+  ACTION addrewards();
+  ACTION checkconsens();
+  ACTION setglobal();
+ACTION clearmembert();
 
+  
 
 /*
 scope: user acc name
 */
+
+  TABLE global
+    {
+        //uint64_t state;
+        //uint64_t event_count;
+        //uint64_t next_event_block_height;
+        //uint64_t participate_duration;
+        //uint64_t rooms_duration;
+        //Needed for the REZPECT distribution, if we store it here amount of REZPECT that is being distributed could be increased by simply triggering modify action
+        //eg. if fib_offset = 6, then lowest level (Rank 1), gets 8 REZPECT (8 sixth number in the Fibonacci sequence)
+        //uint8_t fib_offset; 
+        uint8_t global_meeting_counter;
+
+    };
+      typedef eosio::singleton<"global"_n, global> global_t;
+
+
+
+   // Tables related to automatic msig start
+    TABLE avgbalance 
+    {
+        name user;
+        uint64_t avg_respect;
+
+        uint64_t primary_key() const { return user.value; }
+
+        uint64_t by_secondary() const { return avg_respect; }
+    };
+    typedef eosio::multi_index<"avgbalance"_n, avgbalance,
+    eosio::indexed_by<"avgbalance"_n, eosio::const_mem_fun<avgbalance, uint64_t,&avgbalance::by_secondary>>> avgbalance_t;
+
+    TABLE council 
+    {
+      name delegate;
+
+      int64_t primary_key() const { return delegate.value; }
+    };
+    typedef eosio::multi_index<"delegates"_n, council> council_t;
+
+    struct permission_level_weight 
+    {
+     permission_level permission;
+     uint16_t weight;
+    };
+
+    struct wait_weight 
+    {
+     uint32_t wait_sec;
+     uint16_t weight;
+    };
+
+    struct key_weight 
+    {
+     public_key key;
+     uint16_t weight;
+    };
+
+    struct authority 
+    {
+     uint32_t threshold;
+     std::vector<key_weight> keys;
+     std::vector<permission_level_weight> accounts;
+     std::vector<wait_weight> waits;
+    };
+   // Tables related to automatic msig end
+
+
+ TABLE member
+    {
+        name user;                          // EOS account name
+       // bool is_approved;                   // is user approved member of fractal?
+        //bool is_banned;                     // is user banned from fractal?
+        //vector<name> approvers;             // list of member who approved this member
+        uint64_t respect;                   // amount of REZPECT
+        //string profile_why;                 // Why do you want to be part of the ZEOS fractal?
+       // string profile_about;               // A few words about yourself
+      //  map<name, string> profile_links;    // for instance: twitter.com => @mschoenebeck1 or SSH => ssh-rsa AAAAB3NzaC1yc2E
+        //vector<uint64_t> recent_respect;  // each element contains weekly REZPECT earned
+        //uint8_t meeting_counter;          // shows which element in the vector to adjust
+        //uint64_t avg_of_recent_respect    // this determines who gets to the msig
+
+
+        uint64_t primary_key() const { return user.value; }
+    };
+    typedef multi_index<"members"_n, member> members_t;
+
+
+
+TABLE membert
+    {
+        name user;                          // EOS account name
+       // bool is_approved;                   // is user approved member of fractal?
+        //bool is_banned;                     // is user banned from fractal?
+        //vector<name> approvers;             // list of member who approved this member
+        uint64_t respect;                   // amount of REZPECT
+        //string profile_why;                 // Why do you want to be part of the ZEOS fractal?
+       // string profile_about;               // A few words about yourself
+      //  map<name, string> profile_links;    // for instance: twitter.com => @mschoenebeck1 or SSH => ssh-rsa AAAAB3NzaC1yc2E
+        vector<uint64_t> recent_respect;  // each element contains weekly REZPECT earned
+        uint8_t meeting_counter;          // shows which element in the vector to adjust
+        //uint64_t avg_of_recent_respect    // this determines who gets to the msig
+
+
+        uint64_t primary_key() const { return user.value; }
+    };
+    typedef multi_index<"membert"_n, membert> members_tt;
+
+
 TABLE claim {
 extended_asset quantity;
 uint64_t primary_key() const { return quantity.quantity.symbol.code().raw(); }
@@ -86,7 +231,7 @@ typedef eosio::multi_index<"claims"_n, claim> claim_t;
                  const_mem_fun<ranking, uint64_t, &ranking::by_secondary>>>
       rankings_t;
 
-
+/*
   TABLE result {
     uint64_t id;
     std::vector<name> consensus_rankings;
@@ -94,7 +239,7 @@ typedef eosio::multi_index<"claims"_n, claim> claim_t;
     uint64_t primary_key() const { return id; }
   };
   typedef multi_index<"results"_n, result> results_t;
-
+*/
   // ... (other tables and actions if needed)
 // Table for participants
 TABLE participant {
@@ -142,10 +287,34 @@ private:
         }
     }
 
+void distribute();
+void changemsig();
+
 
 };
- 
+ ACTION zeosfractest::setglobal() 
+{
+    // Ensure only contract owner can call this action (modify as needed)
+    //require_auth(get_self());
 
+    // Use singleton pattern, which works a bit differently from multi_index tables
+    // You'll typically only have one instance (or row) in a singleton table
+    global_t globals(_self, _self.value);
+    auto global_itr = globals.get_or_create(_self, global{0}); 
+    // If global_meeting_counter is 11, reset to 0, otherwise increment
+    if (global_itr.global_meeting_counter == 12) 
+    {
+        global_itr.global_meeting_counter = 0;
+    } 
+    else 
+    {
+        global_itr.global_meeting_counter += 1;
+    }
+
+    // Store the modified/initialized state
+    globals.set(global_itr, get_self());
+}
+/*
 void zeosfractest::automvalid() {
   // Access the rankings table
   rankings_t rankings_table(_self, 1);
@@ -215,9 +384,8 @@ void zeosfractest::automvalid() {
     });
   }
 }
-
-
-
+*/
+/*
 
 void zeosfractest::insertrank(name user, uint64_t room,
                               std::vector<name> rankings) {
@@ -242,8 +410,49 @@ void zeosfractest::insertrank(name user, uint64_t room,
   }
 }
 
-void zeosfractest::populate() {
+*/
 
+void zeosfractest::insertrank(name user, uint64_t room, std::vector<name> rankings) {
+
+  rankings_t rankings_table(_self, _self.value);
+  auto itr = rankings_table.find(user.value);
+
+  // If the user's ranking does not exist, create a new one
+  if (itr == rankings_table.end()) {
+    rankings_table.emplace(_self, [&](auto &r) {
+      r.user = user;
+      r.room = room;
+      r.rankings = rankings;
+    });
+  }
+  // If the user's ranking already exists, update the existing record
+  else {
+    rankings_table.modify(itr, _self, [&](auto &r) {
+      r.room = room;         // Update the room
+      r.rankings = rankings; // Update the rankings
+    });
+  }
+
+  // Handle members table
+  members_tt members_table(_self, _self.value); // Assuming the scope for members is _self
+  auto member_itr = members_table.find(user.value);
+
+  // If the user is not in the members table, create a new one
+  if (member_itr == members_table.end()) {
+    members_table.emplace(_self, [&](auto &m) {
+      m.user = user;
+      m.respect = 0;
+      m.meeting_counter = 0;
+      m.recent_respect = std::vector<uint64_t>(12, 0); // Initializes a vector of size 12 with all zeros
+    });
+  }
+}
+
+
+
+
+void zeosfractest::populate() {
+/*
   // Example data for testing
   // Room 1 (3-user group with consensus)
   insertrank("john"_n, 1, {"john"_n, "carol"_n, "anton"_n});
@@ -319,11 +528,45 @@ insertrank("elena"_n, 10, {"aleksandr"_n, "boris"_n, "dmitriy"_n, "elena"_n, "ga
 insertrank("fedor"_n, 10, {"aleksandr"_n, "boris"_n, "dmitriy"_n, "elena"_n, "fedor"_n, "galina"_n});
 insertrank("galina"_n, 10, {"aleksandr"_n, "boris"_n, "dmitriy"_n, "elena"_n, "fedor"_n, "galina"_n});
 
+
+*/
+
+  // Room 1 (3-user group with consensus)
+  insertrank("vladislav.x"_n, 1, {"mschoenebeck"_n, "gnomegenomes"_n, "vladislav.x"_n});
+  insertrank("mschoenebeck"_n, 1, {"mschoenebeck"_n, "gnomegenomes"_n, "vladislav.x"_n});
+  insertrank("gnomegenomes"_n, 1, {"mschoenebeck"_n, "gnomegenomes"_n, "vladislav.x"_n});
+
+
+// Room 11 (6-user group without consensus)
+insertrank("2542pk.ftw"_n, 11, {"2542pk.ftw"_n, "2luminaries1"_n, "2wkuti52.ftw"_n, "3mg.ftw"_n, "3poalica.ftw"_n, "3rica.ftw"_n});
+insertrank("2luminaries1"_n, 11, {"2luminaries1"_n, "2wkuti52.ftw"_n, "3rica.ftw"_n, "2542pk.ftw"_n, "3mg.ftw"_n, "3poalica.ftw"_n});
+insertrank("2wkuti52.ftw"_n, 11, {"2wkuti52.ftw"_n, "3rica.ftw"_n, "2542pk.ftw"_n, "2luminaries1"_n, "3mg.ftw"_n, "3poalica.ftw"_n});
+insertrank("3mg.ftw"_n, 11, {"3mg.ftw"_n, "2wkuti52.ftw"_n, "3rica.ftw"_n, "2542pk.ftw"_n, "2luminaries1"_n, "3poalica.ftw"_n});
+insertrank("3poalica.ftw"_n, 11, {"3poalica.ftw"_n, "3mg.ftw"_n, "2542pk.ftw"_n, "2luminaries1"_n, "2wkuti52.ftw"_n, "3rica.ftw"_n});
+insertrank("3rica.ftw"_n, 11, {"3rica.ftw"_n, "3poalica.ftw"_n, "3mg.ftw"_n, "2wkuti52.ftw"_n, "2luminaries1"_n, "2542pk.ftw"_n});
+
+// Room 12 (6-user group with half the vectors identical) no consensus
+insertrank("3xfyanfwnqum"_n, 12, {"3xfyanfwnqum"_n, "41aekkfnnfkk"_n, "43233dh.ftw"_n, "443fox.ftw"_n, "452345234523"_n, "4crypto.ftw"_n});
+insertrank("41aekkfnnfkk"_n, 12, {"3xfyanfwnqum"_n, "41aekkfnnfkk"_n, "43233dh.ftw"_n, "443fox.ftw"_n, "452345234523"_n, "4crypto.ftw"_n});
+insertrank("43233dh.ftw"_n, 12, {"3xfyanfwnqum"_n, "41aekkfnnfkk"_n, "43233dh.ftw"_n, "443fox.ftw"_n, "452345234523"_n, "4crypto.ftw"_n});
+insertrank("443fox.ftw"_n, 12, {"443fox.ftw"_n, "452345234523"_n, "4crypto.ftw"_n, "3xfyanfwnqum"_n, "41aekkfnnfkk"_n, "43233dh.ftw"_n});
+insertrank("452345234523"_n, 12, {"452345234523"_n, "4crypto.ftw"_n, "443fox.ftw"_n, "43233dh.ftw"_n, "41aekkfnnfkk"_n, "3xfyanfwnqum"_n});
+insertrank("4crypto.ftw"_n, 12, {"4crypto.ftw"_n, "3xfyanfwnqum"_n, "41aekkfnnfkk"_n, "43233dh.ftw"_n, "443fox.ftw"_n, "452345234523"_n});
+
+// Room 10 (6-user group with consensus)
+insertrank("5115jess.ftw"_n, 10, {"5115jess.ftw"_n, "51lucifer515"_n, "5514.ftw"_n, "5ht4zibb2rxk"_n, "5theotheos54"_n, "5viuqsej.ftw"_n});
+insertrank("51lucifer515"_n, 10, {"5115jess.ftw"_n, "51lucifer515"_n, "5514.ftw"_n, "5ht4zibb2rxk"_n, "5theotheos54"_n, "5viuqsej.ftw"_n});
+insertrank("5514.ftw"_n, 10, {"5115jess.ftw"_n, "51lucifer515"_n, "5514.ftw"_n, "5ht4zibb2rxk"_n, "5theotheos54"_n, "5viuqsej.ftw"_n});
+insertrank("5ht4zibb2rxk"_n, 10, {"5115jess.ftw"_n, "51lucifer515"_n, "5514.ftw"_n, "5ht4zibb2rxk"_n, "5theotheos54"_n, "5viuqsej.ftw"_n});
+insertrank("5theotheos54"_n, 10, {"5115jess.ftw"_n, "51lucifer515"_n, "5514.ftw"_n, "5ht4zibb2rxk"_n, "5theotheos54"_n, "5viuqsej.ftw"_n});
+insertrank("5viuqsej.ftw"_n, 10, {"5115jess.ftw"_n, "51lucifer515"_n, "5514.ftw"_n, "5ht4zibb2rxk"_n, "5theotheos54"_n, "5viuqsej.ftw"_n});
+
+
 }
 
 void zeosfractest::clearranks() {
               // Assuming you have the rankings table defined somewhere
-              rankings_t rankings_table(_self, 1);
+              rankings_t rankings_table(_self, _self.value);
 
               // For clearing the rankings table
               auto rank_itr = rankings_table.begin();
@@ -357,6 +600,16 @@ void zeosfractest::clearranks() {
 
     //void zeosfractest::pede(){}
 
+void zeosfractest::clearmembert() {
+            //require_auth(get_self());  // Only the contract account can run this
+
+            members_tt members(get_self(), get_self().value);  // Scope is usually the contract's name
+
+            // Iterate and delete each record
+            for (auto itr = members.begin(); itr != members.end();) {
+                itr = members.erase(itr);
+            }
+        }
 
 
     void zeosfractest::creategrps(uint32_t num) {
@@ -407,7 +660,7 @@ void zeosfractest::clearranks() {
     all_participants.push_back(participant.user);
        }
     // Shuffle the all_participants vector
-    my_shuffle(all_participants.begin(), all_participants.end());
+    //my_shuffle(all_participants.begin(), all_participants.end());
 /*
 string s = "";
     for(const auto& e : all_participants)
@@ -634,7 +887,7 @@ void awfractal::submitranks(const AllRankings &ranks) {
 
         auto eosAmount = eosRewards[rankIndex];
         if (eosAmount > 0) {
-          claimable_t claimables(get_self(), acc.value);
+          claim_t claimables(get_self(), acc.value);
           auto claim_itr = claimables.find(current_symbol.code().raw());
 
           if (claim_itr != claimables.end()) {
@@ -660,18 +913,80 @@ void awfractal::submitranks(const AllRankings &ranks) {
 }
 */
 
-/*void awfractal::submitranks(const AllRankings &ranks) {
+void zeosfractest::submitranks(
+    const name &user,
+    const uint64_t &group_id,
+    const vector<name> &rankings
+)
+{
+    //require_auth(user);
+
+    // Check whether user is a part of a group he is submitting consensus for.
+    rooms_t rooms(_self, _self.value);
+
+    const auto &room_iter = rooms.get(group_id, "No group with such ID.");
+  
+    bool exists = false;
+    for (const name& room_user : room_iter.users) 
+    {
+        if (room_user == user) 
+        {
+            exists = true;
+            break;
+        }
+    }
+
+    check(exists, "Your account name not found in group");
+
+    size_t group_size = rankings.size();
+    check(group_size >= 3, "too small group");
+    check(group_size <= 6, "too big group");
+
+    // Check if all the accounts in the rankings are part of the room
+    for (const name& ranked_user : rankings)
+    {
+        auto iter = std::find(room_iter.users.begin(), room_iter.users.end(), ranked_user);
+        check(iter != room_iter.users.end(), ranked_user.to_string() + " not found in the group.");
+    }
+
+    // Check that no account is listed more than once in rankings
+    std::set<name> unique_ranked_accounts(rankings.begin(), rankings.end());
+    check(rankings.size() == unique_ranked_accounts.size(), "Duplicate accounts found in rankings.");
+
+    for (const name& ranked_user : rankings) 
+    {
+        std::string rankname = ranked_user.to_string();
+        check(is_account(ranked_user), rankname + " account does not exist.");
+    }
+
+    rankings_t rankings_table(_self, _self.value);
+
+    if (rankings_table.find(user.value) == rankings_table.end()) 
+    {
+        rankings_table.emplace(user, [&](auto &row) {
+            row.user = user;
+            row.room = group_id; 
+            row.rankings = rankings;
+        });
+    } 
+    else 
+    {
+        check(false, "You can vote only once my friend.");
+    }
+}
+/*
+void zeosfractest::distribute(const AllRankings &ranks) {
+  //void zeosfractest::distribute(vector<vector<name>> &ranks) {
   rewards_t rewards(get_self(), get_self().value);
+  auto numGroups = ranks.allRankings.size();
 
   for (const auto& reward_entry : rewards) {
-    auto availableReward = reward_entry.quantity.amount;
+    auto availableReward = reward_entry.quantity.quantity.amount;
     if (availableReward <= 0) {
-      continue;  // Skip the iteration if there are no rewards available for this token.
+      continue;  
     }
 
     auto coeffSum = std::accumulate(std::begin(polyCoeffs), std::end(polyCoeffs), 0.0);
-
-    // Calculate the EOS (or other token) per coefficient.
     auto multiplier = static_cast<double>(availableReward) / (numGroups * coeffSum);
 
     std::vector<int64_t> tokenRewards;
@@ -681,41 +996,45 @@ void awfractal::submitranks(const AllRankings &ranks) {
                        return finalEosQuant;
                    });
 
-    // If the reward for any coefficient is zero, skip distribution for this token.
     if (std::any_of(tokenRewards.begin(), tokenRewards.end(), [](int64_t val) { return val == 0; })) {
       continue;
     }
 
     for (const auto &rank : ranks.allRankings) {
       size_t group_size = rank.ranking.size();
-      auto rankIndex = max_group_size - group_size;
+      auto rankIndex = 6 - group_size;
       for (const auto &acc : rank.ranking) {
-        auto fibAmount = static_cast<int64_t>(fib(rankIndex + newrew.fib_offset));
-        auto respect_amount = static_cast<int64_t>(fibAmount * std::pow(10, eden_symbol.precision()));
+        auto fibAmount = static_cast<int64_t>(fib(rankIndex + 5));
+        auto respect_amount = static_cast<int64_t>(fibAmount * std::pow(10, 4));
 
         members_t members(get_self(), get_self().value);
         auto mem_itr = members.find(acc.value);
-        check(mem_itr != members.end(), "Account not found in members table");
+        
+        // If user not found in members, add them.
+        if (mem_itr == members.end()) {
+          members.emplace(_self, [&](auto &row) {
+            row.user = acc;
+            row.respect = 0;
+          });
+          mem_itr = members.find(acc.value);  // Update iterator after adding
+        }
 
-        // Update the user's respect in members table
         members.modify(mem_itr, _self, [&](auto &row) {
           row.respect += respect_amount;
         });
 
         auto tokenAmount = tokenRewards[rankIndex];
         if (tokenAmount > 0) {
-          claimable_t claimables(get_self(), acc.value);
-          auto claim_itr = claimables.find(reward_entry.quantity.symbol.code().raw());
+          claim_t claimables(get_self(), acc.value);
+          auto claim_itr = claimables.find(reward_entry.quantity.quantity.symbol.code().raw());
 
           if (claim_itr != claimables.end()) {
-            // Modify existing claimable balance
             claimables.modify(claim_itr, _self, [&](auto &row) {
-              row.claimable.amount += tokenAmount;
+              row.quantity.quantity.amount += tokenAmount;
             });
           } else {
-            // Create new claimable balance entry
             claimables.emplace(_self, [&](auto &row) {
-              row.claimable = asset{tokenAmount, reward_entry.quantity.symbol};
+              row.quantity.quantity = asset{tokenAmount, reward_entry.quantity.quantity.symbol};
             });
           }
         }
@@ -724,10 +1043,660 @@ void awfractal::submitranks(const AllRankings &ranks) {
       }
     }
 
-    // Reduce the total reward in the rewards table by the distributed amount
     rewards.modify(reward_entry, _self, [&](auto &row) {
-      row.quantity.amount -= availableReward;
+      row.quantity.quantity.amount -= availableReward;
     });
   }
 }
 */
+/*
+void zeosfractest::distribute(const vector<vector<name>> &ranks) {
+  rewards_t rewards(get_self(), get_self().value);
+  auto numGroups = ranks.size();
+
+  for (const auto& reward_entry : rewards) {
+    auto availableReward = reward_entry.quantity.quantity.amount;
+    if (availableReward <= 0) {
+      continue;  
+    }
+
+    auto coeffSum = std::accumulate(std::begin(polyCoeffs), std::end(polyCoeffs), 0.0);
+    auto multiplier = static_cast<double>(availableReward) / (numGroups * coeffSum);
+
+    std::vector<int64_t> tokenRewards;
+    std::transform(std::begin(polyCoeffs), std::end(polyCoeffs),
+                   std::back_inserter(tokenRewards), [&](const auto &c) {
+                       auto finalEosQuant = static_cast<int64_t>(multiplier * c);
+                       return finalEosQuant;
+                   });
+
+    if (std::any_of(tokenRewards.begin(), tokenRewards.end(), [](int64_t val) { return val == 0; })) {
+      continue;
+    }
+
+    for (const auto &rank : ranks) {
+      size_t group_size = rank.size();
+      auto rankIndex = 6 - group_size;
+
+      // Ensure respect is only distributed once.
+      std::set<eosio::name> distributedAccounts;
+
+      for (const auto &acc : rank) {
+        if(distributedAccounts.count(acc) == 0) {
+          auto fibAmount = static_cast<int64_t>(fib(rankIndex + 5));
+          auto respect_amount = static_cast<int64_t>(fibAmount * std::pow(10, 4));
+
+          members_t members(get_self(), get_self().value);
+          auto mem_itr = members.find(acc.value);
+          
+          // If user not found in members, add them.
+          if (mem_itr == members.end()) {
+            members.emplace(_self, [&](auto &row) {
+              row.user = acc;
+              row.respect = 0;
+            });
+            mem_itr = members.find(acc.value);
+          }
+
+          members.modify(mem_itr, _self, [&](auto &row) {
+            row.respect += respect_amount;
+          });
+
+          distributedAccounts.insert(acc);
+        }
+
+        auto tokenAmount = tokenRewards[rankIndex];
+        if (tokenAmount > 0) {
+          claim_t claimables(get_self(), acc.value);
+          auto claim_itr = claimables.find(reward_entry.quantity.quantity.symbol.code().raw());
+
+          if (claim_itr != claimables.end()) {
+            claimables.modify(claim_itr, _self, [&](auto &row) {
+              row.quantity.quantity.amount += tokenAmount;
+            });
+          } else {
+            claimables.emplace(_self, [&](auto &row) {
+              row.quantity.quantity = asset{tokenAmount, reward_entry.quantity.quantity.symbol};
+            });
+          }
+        }
+
+        ++rankIndex;
+      }
+    }
+
+    rewards.modify(reward_entry, _self, [&](auto &row) {
+      row.quantity.quantity.amount -= availableReward;
+    });
+  }
+}
+
+*/
+/*
+void zeosfractest::distribute(const vector<vector<name>> &ranks) {
+  rewards_t rewards(get_self(), get_self().value);
+
+  // Distributing respect regardless of token rewards.
+  for (const auto &rank : ranks) {
+    size_t group_size = rank.size();
+    auto rankIndex = 6 - group_size;
+    for (const auto &acc : rank) {
+      auto fibAmount = static_cast<int64_t>(fib(rankIndex + 5));
+      auto respect_amount = static_cast<int64_t>(fibAmount * std::pow(10, 4));
+
+      members_t members(get_self(), get_self().value);
+      auto mem_itr = members.find(acc.value);
+      
+      // If user not found in members, add them.
+      if (mem_itr == members.end()) {
+        members.emplace(_self, [&](auto &row) {
+          row.user = acc;
+          row.respect = respect_amount;
+        });
+      } else {
+        members.modify(mem_itr, _self, [&](auto &row) {
+          row.respect += respect_amount;
+        });
+      }
+
+      ++rankIndex;
+    }
+  }
+
+  // Distributing token rewards.
+  for (const auto& reward_entry : rewards) {
+    auto availableReward = reward_entry.quantity.quantity.amount;
+    if (availableReward <= 0) {
+      continue;  
+    }
+
+    auto coeffSum = std::accumulate(std::begin(polyCoeffs), std::end(polyCoeffs), 0.0);
+    auto multiplier = static_cast<double>(availableReward) / (ranks.size() * coeffSum);
+
+    std::vector<int64_t> tokenRewards;
+    std::transform(std::begin(polyCoeffs), std::end(polyCoeffs),
+                   std::back_inserter(tokenRewards), [&](const auto &c) {
+                       return static_cast<int64_t>(multiplier * c);
+                   });
+
+    if (std::any_of(tokenRewards.begin(), tokenRewards.end(), [](int64_t val) { return val == 0; })) {
+      continue;
+    }
+
+    for (const auto &rank : ranks) {
+      size_t group_size = rank.size();
+      auto rankIndex = 6 - group_size;
+      for (const auto &acc : rank) {
+        auto tokenAmount = tokenRewards[rankIndex];
+        if (tokenAmount > 0) {
+          claim_t claimables(get_self(), acc.value);
+          auto claim_itr = claimables.find(reward_entry.quantity.quantity.symbol.code().raw());
+
+          if (claim_itr != claimables.end()) {
+            claimables.modify(claim_itr, _self, [&](auto &row) {
+              row.quantity.quantity.amount += tokenAmount;
+            });
+          } else {
+            claimables.emplace(_self, [&](auto &row) {
+              row.quantity.quantity = asset{tokenAmount, reward_entry.quantity.quantity.symbol};
+            });
+          }
+        }
+
+        ++rankIndex;
+      }
+    }
+
+    rewards.modify(reward_entry, _self, [&](auto &row) {
+      row.quantity.quantity.amount -= availableReward;
+    });
+  }
+}
+*/
+// ACTION to add hardcoded tokens
+    void zeosfractest::addrewards()
+    {
+        //require_auth(_self);  // Only the contract can call this
+
+        rewards_t rewards_table(_self, _self.value);
+
+        // Hardcoded tokens, symbols, and contracts
+        std::vector<extended_asset> hardcoded_rewards = 
+        {
+            {asset(100000, symbol("EOS", 4)), "eosio.token"_n},
+            {asset(50000, symbol("MYTK", 4)), "mytoken"_n},
+            {asset(7, symbol("GOLD", 4)), "gold.token"_n},
+            // Add more as needed
+        };
+
+        for(const auto& ext_asset : hardcoded_rewards)
+        {
+            // Ensure token doesn't exist
+            auto itr = rewards_table.find(ext_asset.quantity.symbol.raw());
+            if(itr == rewards_table.end())
+            {
+                rewards_table.emplace(_self, [&](auto &row) {
+                    row.quantity = ext_asset;
+                });
+            }
+            else
+            {
+                rewards_table.modify(itr, same_payer, [&](auto &row) {
+                    row.quantity += ext_asset;
+                });
+            }
+        }
+    }
+
+
+
+
+void zeosfractest::checkconsens()
+{
+  // Access the rankings table (fuck it let's delete rankings after each election, we don't need it)
+  rankings_t rankings_table(_self, _self.value);
+
+  // Use a secondary index to sort by room
+  auto idx = rankings_table.get_index<"bysecondary"_n>();
+
+  // Store results of consensus rankings
+  std::vector<std::vector<eosio::name>> allRankings;
+  // Iterate through rankings table by group, using the secondary index
+  auto itr = idx.begin();
+  while (itr != idx.end()) 
+  {
+     uint64_t current_group = itr->room;
+
+     // Store all submissions for the current group
+     std::vector<std::vector<eosio::name>> all_submissions;
+
+    // Aggregate all submissions for the current group
+     while (itr != idx.end() && itr->room == current_group) 
+     {
+        all_submissions.push_back(itr->rankings);
+        ++itr;
+     }
+
+    std::vector<eosio::name> consensus_ranking;
+    bool has_consensus = true;
+    size_t total_submissions = all_submissions.size();
+
+    // Check consensus for this group
+    for (size_t i = 0; i < all_submissions[0].size(); ++i) 
+    {
+       std::map<eosio::name, uint64_t> counts;
+       eosio::name most_common_name;
+       uint64_t most_common_count = 0;
+
+      // Count occurrences and identify the most common account at the same time
+       for (const auto &submission : all_submissions) 
+       {
+         counts[submission[i]]++;
+
+        // Update most_common_name if necessary
+        if (counts[submission[i]] > most_common_count) 
+        {
+           most_common_name = submission[i];
+           most_common_count = counts[submission[i]];
+        }
+       }
+
+      // Check consensus for the current rank
+       if (most_common_count * 3 >= total_submissions * 2) 
+       {
+         consensus_ranking.push_back(most_common_name);
+       } 
+       else 
+       {
+         has_consensus = false;
+         break;
+       }
+    }
+
+    // Store consensus ranking for the group if consensus is achieved
+    if (has_consensus) 
+    {
+       allRankings.push_back(consensus_ranking);
+    }
+  }
+   // allRankings is passed to the function to distribute RESPECT and make other tokens claimable
+   distribute(allRankings);
+}
+
+
+
+/*
+void zeos1fractal::distribute(const vector<vector<name>> &ranks) {
+  rewards_t rewards(get_self(), get_self().value);
+
+  // 1. Distribute respect to each member based on their rank.
+  //    Respect is determined by the Fibonacci series and is independent of available tokens.
+  for (const auto &rank : ranks) 
+  {
+     // Determine the initial rank index based on group size.
+     size_t group_size = rank.size();
+     auto rankIndex = 6 - group_size;
+
+     for (const auto &acc : rank) 
+     {
+       // Calculate respect based on the Fibonacci series.
+       auto fibAmount = static_cast<int64_t>(fib(rankIndex + 5));
+       auto respect_amount = static_cast<int64_t>(fibAmount * std::pow(10, 4));
+
+       members_t members(get_self(), get_self().value);
+       auto mem_itr = members.find(acc.value);
+      
+       // Update respect for each member.
+       if (mem_itr == members.end())  // If user is not yet in members, add them.
+       {
+         members.emplace(_self, [&](auto &row) {
+           row.user = acc;
+           row.respect = respect_amount;
+         });
+       } 
+       else  // Otherwise, update their respect.
+       {
+         members.modify(mem_itr, _self, [&](auto &row) {
+           row.respect += respect_amount;
+         });
+       }
+
+       ++rankIndex;  // Move to next rank.
+     }
+  }
+
+  // 2. Distribute token rewards based on available tokens and user rank.
+  for (const auto& reward_entry : rewards) 
+  {
+    auto availableReward = reward_entry.quantity.quantity.amount;
+
+    // Skip if no tokens are available for distribution.
+    if (availableReward <= 0) 
+    {
+      continue;  
+    }
+
+    // Calculate multiplier using polynomial coefficients and total available reward.
+    auto coeffSum = std::accumulate(std::begin(polyCoeffs), std::end(polyCoeffs), 0.0);
+    auto multiplier = static_cast<double>(availableReward) / (ranks.size() * coeffSum);
+
+    // Determine token rewards for each rank.
+    std::vector<int64_t> tokenRewards;
+    std::transform(std::begin(polyCoeffs), std::end(polyCoeffs),
+                   std::back_inserter(tokenRewards), [&](const auto &c) {
+                       return static_cast<int64_t>(multiplier * c);
+                   });
+
+    // Skip if any rank gets 0 tokens.
+    if (std::any_of(tokenRewards.begin(), tokenRewards.end(), [](int64_t val) { return val == 0; })) 
+    {
+      continue;
+    }
+
+    // Update or add claimable tokens for each member based on their rank.
+    for (const auto &rank : ranks) 
+    {
+      size_t group_size = rank.size();
+      auto rankIndex = 6 - group_size;
+      for (const auto &acc : rank) 
+      {
+        auto tokenAmount = tokenRewards[rankIndex];
+
+        if (tokenAmount > 0)  // Only proceed if the member should get tokens.
+        {
+          claim_t claimables(get_self(), acc.value);
+          auto claim_itr = claimables.find(reward_entry.quantity.quantity.symbol.code().raw());
+
+          if (claim_itr != claimables.end())  // If member has claimables, update them.
+          {
+            claimables.modify(claim_itr, _self, [&](auto &row) {
+              row.quantity.quantity.amount += tokenAmount;
+            });
+          } 
+          else  // Otherwise, add new claimable.
+          {
+            claimables.emplace(_self, [&](auto &row) {
+              row.quantity.quantity = asset{tokenAmount, reward_entry.quantity.quantity.symbol};
+            });
+          }
+        }
+
+        ++rankIndex;  // Move to next rank.
+      }
+    }
+
+    // Deduct distributed amount from total available rewards.
+    rewards.modify(reward_entry, _self, [&](auto &row) {
+      row.quantity.quantity.amount -= availableReward;
+    });
+  }
+}
+
+*/
+
+
+void zeosfractest::distribute(const vector<vector<name>> &ranks) 
+{
+  rewards_t rewards(get_self(), get_self().value);
+  members_tt members(get_self(), get_self().value);
+
+
+  // 1. Distribute respect to each member based on their rank.
+  //    Respect is determined by the Fibonacci series and is independent of available tokens.
+  for (const auto &rank : ranks) 
+  {
+     // Determine the initial rank index based on group size.
+     size_t group_size = rank.size();
+     auto rankIndex = 6 - group_size;
+
+     for (const auto &acc : rank) 
+     {
+       // Calculate respect based on the Fibonacci series.
+       auto fibAmount = static_cast<int64_t>(fib(rankIndex + 5));
+       auto respect_amount = static_cast<int64_t>(fibAmount * std::pow(10, 4));
+       //check(false,respect_amount);
+
+       //members_tt members(get_self(), get_self().value);
+       auto mem_itr = members.find(acc.value);
+
+       uint8_t meeting_counter_new;
+
+       if (mem_itr->meeting_counter == 12) 
+       {
+         meeting_counter_new = 0;
+       } 
+       else 
+       {
+         meeting_counter_new = mem_itr->meeting_counter + 1;
+       }
+
+         members.modify(mem_itr, _self, [&](auto &row) {
+           row.respect += respect_amount;
+           row.recent_respect[mem_itr->meeting_counter] = respect_amount;
+           row.meeting_counter = meeting_counter_new;
+         });
+      
+
+       ++rankIndex;  // Move to next rank.
+     }
+  }
+  
+
+  // 2. Distribute token rewards based on available tokens and user rank.
+  for (const auto& reward_entry : rewards) 
+  {
+    auto availableReward = reward_entry.quantity.quantity.amount;
+
+    // Skip if no tokens are available for distribution.
+    if (availableReward <= 0) 
+    {
+      continue;  
+    }
+
+    // Calculate multiplier using polynomial coefficients and total available reward.
+    auto coeffSum = std::accumulate(std::begin(polyCoeffs), std::end(polyCoeffs), 0.0);
+    auto multiplier = static_cast<double>(availableReward) / (ranks.size() * coeffSum);
+
+    // Determine token rewards for each rank.
+    std::vector<int64_t> tokenRewards;
+    std::transform(std::begin(polyCoeffs), std::end(polyCoeffs),
+                   std::back_inserter(tokenRewards), [&](const auto &c) {
+                       return static_cast<int64_t>(multiplier * c);
+                   });
+
+    // Skip if any rank gets 0 tokens.
+    if (std::any_of(tokenRewards.begin(), tokenRewards.end(), [](int64_t val) { return val == 0; })) 
+    {
+      continue;
+    }
+
+    // Update or add claimable tokens for each member based on their rank.
+    for (const auto &rank : ranks) 
+    {
+      size_t group_size = rank.size();
+      auto rankIndex = 6 - group_size;
+      for (const auto &acc : rank) 
+      {
+        auto tokenAmount = tokenRewards[rankIndex];
+
+        if (tokenAmount > 0)  // Only proceed if the member should get tokens.
+        {
+          claim_t claimables(get_self(), acc.value);
+          auto claim_itr = claimables.find(reward_entry.quantity.quantity.symbol.code().raw());
+
+          if (claim_itr != claimables.end())  // If member has claimables, update them.
+          {
+            claimables.modify(claim_itr, _self, [&](auto &row) {
+              row.quantity.quantity.amount += tokenAmount;
+            });
+          } 
+          else  // Otherwise, add new claimable.
+          {
+            claimables.emplace(_self, [&](auto &row) {
+              row.quantity.quantity = asset{tokenAmount, reward_entry.quantity.quantity.symbol};
+            });
+          }
+        }
+
+        ++rankIndex;  // Move to next rank.
+      }
+    }
+  
+    // Loop through the members who did not participate and update their recent_respect to 0 and meeting_counter
+ // auto g = _global.get();
+
+ 
+
+
+    // Deduct distributed amount from total available rewards.
+  rewards.modify(reward_entry, _self, [&](auto &row) {
+      row.quantity.quantity.amount -= availableReward;
+  });
+
+  }
+
+global_t globals(_self, _self.value);
+    auto g = globals.get_or_create(_self, global{0}); 
+
+     //auto g = _global.get_or_default();
+
+  
+  for (auto memb_itr = members.begin(); memb_itr != members.end(); ++memb_itr) 
+  {
+      // Check if member's meeting_counter is different from global_meeting_counter
+      if (memb_itr->meeting_counter != g.global_meeting_counter) 
+      {
+          // Modify the member's row
+          members.modify(memb_itr, get_self(), [&](auto &row) {
+              row.recent_respect[memb_itr->meeting_counter] = 0;
+              row.meeting_counter = g.global_meeting_counter;
+          });
+      }
+  }
+
+  changemsig();
+
+  
+
+}
+
+ void zeosfractest::changemsig() 
+{
+  members_tt members(get_self(), get_self().value);
+  avgbalance_t avgbalance(_self, _self.value);
+  council_t council(_self, _self.value);
+
+  // Calculate avg_respect of each member and save it to avgbalance_t
+  for (auto iter = members.begin(); iter != members.end(); ++iter)
+  {
+    uint64_t sum_of_respect = std::accumulate(iter->recent_respect.begin(),iter->recent_respect.end(), 0);
+    uint64_t nr_of_weeks = 12;
+    uint64_t avg_respect = sum_of_respect / nr_of_weeks;
+
+    auto to = avgbalance.find(iter->user.value);
+    if (to == avgbalance.end()) 
+    {
+      avgbalance.emplace(_self, [&](auto &a) {
+        a.user = iter->user;
+        a.avg_respect = avg_respect;
+      });
+    } 
+    else 
+    {
+      avgbalance.modify(to, _self, [&](auto &a) { a.avg_respect = avg_respect; });
+    }
+  }
+
+  auto avgbalance_idx = avgbalance.get_index<name("avgbalance")>();
+
+  vector<name> delegates;
+
+  auto iter = avgbalance_idx.rbegin(); 
+  for(int i = 0; i < 5 && iter != avgbalance_idx.rend(); ++i, ++iter)
+  {
+    delegates.push_back(iter->user);
+  }
+
+  // Clear the council table
+  for (auto iterdel = council.begin(); iterdel != council.end();) 
+  {
+    council.erase(iterdel++);
+  }
+
+  // Populate council table
+  for (const auto& delegate : delegates)
+  {
+    council.emplace(_self, [&](auto &a) { a.delegate = delegate; });
+  }
+
+  vector<name> alphabetically_ordered_delegates;
+
+  for (auto iter = council.begin(); iter != council.end(); iter++) 
+  {
+    alphabetically_ordered_delegates.push_back(iter->delegate);
+  }
+
+  authority contract_authority;
+
+  vector<permission_level_weight> accounts;
+  for (const auto& delegate : alphabetically_ordered_delegates)
+  {
+    accounts.push_back({.permission = permission_level{delegate, "active"_n}, .weight = (uint16_t)1});
+  }
+
+  contract_authority.threshold = 4;
+  contract_authority.keys = {};
+  contract_authority.accounts = accounts;
+  contract_authority.waits = {};
+
+  action(
+      permission_level{_self, name("owner")}, name("eosio"), name("updateauth"),
+      std::make_tuple(_self, name("active"), name("owner"), contract_authority)
+  ).send();
+}
+
+/*
+
+
+TABLE avgbalance {
+
+    name user;
+    uint64_t balance;
+
+    uint64_t primary_key() const { return user.value; }
+
+    uint64_t by_secondary() const { return balance; }
+  };
+
+  typedef eosio::multi_index<
+      "avgbalance"_n, avgbalance,
+      eosio::indexed_by<"avgbalance"_n,
+                        eosio::const_mem_fun<avgbalance, uint64_t,
+                                             &avgbalance::by_secondary>>>
+
+
+//this has to go to respect distribution func
+void zeosfractest::addavgresp(const uint64_t &quantity, const name &user) 
+{
+members_t members(get_self(), get_self().value);
+
+const auto &membiter = members.get(user.value, "No such user in members table.");
+
+uint8_t meeting_counter_real;
+
+  if (membiter.meeting_counter == 12) 
+  {
+    meeting_counter_real = 0;
+  } 
+  else 
+  {
+    meeting_counter_real = membiter.meeting_counter;
+  }
+
+ members.modify(iter, _self, [&](auto &a) {
+   a.recent_respect[meeting_counter_real] = value.amount;
+  });
+}
+
+*/
+
