@@ -64,8 +64,10 @@ void zeos1fractal::changestate()
             //  g.global_meeting_counter++;
             //}
             
-            check_consensus(); //rename this to reflect all the actions that happen in sequence 
-              
+            vector<vector<name>> consensus_rankings = check_consensus();
+            distribute_rewards(consensus_rankings);
+            update_msig();
+            
             // TODO:
             // reset event tables
         }
@@ -405,7 +407,7 @@ void zeos1fractal::create_groups()
     }
 }
 
-void zeos1fractal::check_consensus()
+vector<vector<name>> zeos1fractal::check_consensus()
 {
     // Access the rankings table (fuck it let's delete rankings after each election, we don't need it)
     rankings_t rankings_table(_self, _self.value);
@@ -480,7 +482,9 @@ void zeos1fractal::check_consensus()
     }
 
     // all_rankings_with_consensus is passed to the function to distribute RESPECT and make other tokens claimable
-    distribute_rewards(all_rankings_with_consensus);
+    // distribute_rewards(all_rankings_with_consensus);
+    return all_rankings_with_consensus;
+
 }
 
 void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
@@ -611,8 +615,6 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
             });
         }
     }
-
-    update_msig();
 }
 
  void zeos1fractal::update_msig()
