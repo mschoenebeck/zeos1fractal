@@ -244,7 +244,7 @@ private:
     }
 
     void create_groups();
-    void check_consensus();
+    vector<vector<name>> check_consensus();
     void distribute_rewards(const vector<vector<name>> &ranks);
     void update_msig();
 };

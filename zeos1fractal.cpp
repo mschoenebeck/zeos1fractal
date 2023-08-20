@@ -65,8 +65,10 @@ void zeos1fractal::changestate()
             //  g.global_meeting_counter++;
             //}
             
-            //check_consensus(); //rename this to reflect all the actions that happen in sequence 
-              
+            vector<vector<name>> consensus_rankings = check_consensus();
+            distribute_rewards(consensus_rankings);
+            update_msig();
+            
             // TODO:
             // reset event tables
         }
@@ -188,7 +190,7 @@ void zeos1fractal::submitranks(
     rooms_t rooms(_self, _self.value);
 
     const auto &room_iter = rooms.get(group_id, "No group with such ID.");
-  
+
     bool exists = false;
     for (const name& room_user : room_iter.users) 
     {
@@ -202,6 +204,10 @@ void zeos1fractal::submitranks(
     check(exists, "Your account name not found in group");
 
     size_t group_size = rankings.size();
+
+    // Check whether size of ranking equals to the size of users of that room
+    check(group_size == room_iter.users.size(), "Rankings size must match the number of users in the group.");
+    // Indeed checks below seem to be unneccesary but let's still keep?
     check(group_size >= 3, "too small group");
     check(group_size <= 6, "too big group");
 
@@ -405,7 +411,7 @@ void zeos1fractal::create_groups()
     }
 }
 
-void zeos1fractal::check_consensus()
+vector<vector<name>> zeos1fractal::check_consensus()
 {
     // Access the rankings table (fuck it let's delete rankings after each election, we don't need it)
     rankings_t rankings_table(_self, _self.value);
@@ -414,7 +420,7 @@ void zeos1fractal::check_consensus()
     auto idx = rankings_table.get_index<"bysecondary"_n>();
 
     // Store results of consensus rankings
-    vector<vector<name>> allRankings;
+    vector<vector<name>> all_rankings_with_consensus;
 
     // Iterate through rankings table by group, using the secondary index
     auto itr = idx.begin();
@@ -423,43 +429,47 @@ void zeos1fractal::check_consensus()
         uint64_t current_group = itr->room;
 
         // Store all submissions for the current group
-        vector<vector<name>> all_submissions;
+        vector<vector<name>> room_submissions;
 
         // Aggregate all submissions for the current group
         while (itr != idx.end() && itr->room == current_group)
         {
-            all_submissions.push_back(itr->rankings);
+            room_submissions.push_back(itr->rankings);
             ++itr;
         }
 
         vector<name> consensus_ranking;
         bool has_consensus = true;
-        size_t total_submissions = all_submissions.size();
+
+        // Get how many submission there should be per room
+        rooms_t rooms(_self, _self.value);
+        const auto &room_iter = rooms.get(itr->room, "No group with such ID.");
+        size_t maximum_submissions = room_iter.users.size();
 
         // Check consensus for this group
-        for (size_t i = 0; i < all_submissions[0].size(); ++i)
+        for (size_t i = 0; i < room_submissions[0].size(); ++i)
         {
             map<name, uint64_t> counts;
-            name most_common_name;
-            uint64_t most_common_count = 0;
+            name most_voted_name;
+            uint64_t most_voted_count = 0;
 
             // Count occurrences and identify the most common account at the same time
-            for (const auto &submission : all_submissions)
+            for (const auto &submission : room_submissions)
             {
                 counts[submission[i]]++;
 
-                // Update most_common_name if necessary
-                if (counts[submission[i]] > most_common_count)
+                // Update most_voted_name if necessary
+                if (counts[submission[i]] > most_voted_count)
                 {
-                    most_common_name = submission[i];
-                    most_common_count = counts[submission[i]];
+                    most_voted_name = submission[i];
+                    most_voted_count = counts[submission[i]];
                 }
             }
 
             // Check consensus for the current rank
-            if (most_common_count * 3 >= total_submissions * 2)
+            if (most_voted_count * 3 >= maximum_submissions * 2)
             {
-                consensus_ranking.push_back(most_common_name);
+                consensus_ranking.push_back(most_voted_name);
             }
             else
             {
@@ -471,12 +481,14 @@ void zeos1fractal::check_consensus()
         // Store consensus ranking for the group if consensus is achieved
         if (has_consensus)
         {
-            allRankings.push_back(consensus_ranking);
+            all_rankings_with_consensus.push_back(consensus_ranking);
         }
     }
 
-    // allRankings is passed to the function to distribute RESPECT and make other tokens claimable
-    distribute_rewards(allRankings);
+    // all_rankings_with_consensus is passed to the function to distribute RESPECT and make other tokens claimable
+    // distribute_rewards(all_rankings_with_consensus);
+    return all_rankings_with_consensus;
+
 }
 
 void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
@@ -607,8 +619,6 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
             });
         }
     }
-
-    update_msig();
 }
 
  void zeos1fractal::update_msig()
