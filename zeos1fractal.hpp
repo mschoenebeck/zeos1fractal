@@ -231,19 +231,21 @@ private:
     // a simple generic "shell sort" implementation
     // borrowed from: https://www.softwaretestinghelp.com/sorting-techniques-in-cpp/#Shell_Sort
     template <typename T, typename F>
-    int my_sort(T arr[], int N, F predicate)
+    void my_sort(T arr[], int n, F predicate)
     {
-        for(int gap = N/2; gap > 0; gap /= 2) {
-            for(int i = gap; i < N; i += 1)
+        for(int gap = n/2; gap > 0; gap /= 2)
+        {
+            for(int i = gap; i < n; i += 1)
             {
-                T temp = arr[i];
+                T tmp = arr[i];
                 int j;
-                for(j = i; j >= gap && predicate(arr[j - gap], temp); j -= gap)
+                for(j = i; j >= gap && predicate(tmp, arr[j - gap]); j -= gap)
+                {
                     arr[j] = arr[j - gap];
-                arr[j] = temp;
+                }
+                arr[j] = tmp;
             }
         }
-        return 0;
     }
 
     void create_groups();

@@ -65,9 +65,9 @@ void zeos1fractal::changestate()
             //  g.global_meeting_counter++;
             //}
             
-            //vector<vector<name>> consensus_rankings = check_consensus();
-            //distribute_rewards(consensus_rankings);
-            //update_msig();
+            vector<vector<name>> consensus_rankings = check_consensus();
+            distribute_rewards(consensus_rankings);
+            update_msig();
             
             // TODO:
             // reset event tables
@@ -635,9 +635,9 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
         double average_respect;
     };
     // lambda functions used for sorting by total/average respect:
-    // using "less than" results in descending order (index 0 => member with most average/total respect)
-    auto ttl_cmp = [](const respected_member & a,const respected_member& b) { return a.total_respect < b.total_respect; };
-    auto avg_cmp = [](const respected_member & a,const respected_member& b) { return a.average_respect < b.average_respect; };
+    // using "greater than" for descending order (index 0 => member with most average/total respect)
+    auto ttl_cmp = [](const respected_member & a,const respected_member& b) { return a.total_respect > b.total_respect; };
+    auto avg_cmp = [](const respected_member & a,const respected_member& b) { return a.average_respect > b.average_respect; };
 
     // walk through all members and calculate average respect
     vector<respected_member> respected_members;
