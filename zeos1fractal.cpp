@@ -470,6 +470,7 @@ void zeos1fractal::check_consensus()
             allRankings.push_back(consensus_ranking);
         }
     }
+
     // allRankings is passed to the function to distribute RESPECT and make other tokens claimable
     distribute_rewards(allRankings);
 }
@@ -604,7 +605,6 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
     }
 
     update_msig();
-
 }
 
  void zeos1fractal::update_msig()
@@ -633,9 +633,8 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
         }
     }
 
-    auto members_idx = members.get_index<name("members")>();
     vector<name> delegates;
-
+    auto members_idx = members.get_index<name("members")>();
     auto iter = members_idx.rbegin();
     for(int i = 0; i < 5 && iter != members_idx.rend(); ++i, ++iter)
     {
@@ -655,13 +654,10 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
     }
 
     vector<name> alphabetically_ordered_delegates;
-
     for (auto iter = council.begin(); iter != council.end(); iter++)
     {
         alphabetically_ordered_delegates.push_back(iter->delegate);
     }
-
-    authority contract_authority;
 
     vector<permission_level_weight> accounts;
     for (const auto& delegate : alphabetically_ordered_delegates)
@@ -669,6 +665,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
         accounts.push_back({.permission = permission_level{delegate, "active"_n}, .weight = (uint16_t)1});
     }
 
+    authority contract_authority;
     contract_authority.threshold = 4;
     contract_authority.keys = {};
     contract_authority.accounts = accounts;

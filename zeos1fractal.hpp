@@ -229,5 +229,4 @@ private:
     void check_consensus();
     void distribute_rewards(const vector<vector<name>> &ranks);
     void update_msig();
-
 };
