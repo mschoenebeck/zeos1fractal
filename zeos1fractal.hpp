@@ -51,58 +51,19 @@ public:
     };
     using rng_t = singleton<"rng"_n, rng>;
 
-/*
-
-    TABLE global
+     TABLE global
     {
         uint64_t state;
         uint64_t event_count;
         uint64_t next_event_block_height;
         uint64_t participate_duration;
         uint64_t rooms_duration;
-        //Needed for the REZPECT distribution, if we store it here amount of REZPECT that is being distributed could be increased by simply triggering modify action
-        //eg. if fib_offset = 6, then lowest level (Rank 1), gets 8 REZPECT (8 sixth number in the Fibonacci sequence)
-        //uint8_t fib_offset; 
+        uint8_t fib_offset;
         //uint8_t global_meeting_counter;
-
     };
     singleton<"global"_n, global> _global;
-*/   
 
-/*
     TABLE member
-    {
-        name user;                          // EOS account name
-        bool is_approved;                   // is user approved member of fractal?
-        bool is_banned;                     // is user banned from fractal?
-        vector<name> approvers;             // list of member who approved this member
-        uint64_t respect;                   // amount of REZPECT
-        string profile_why;                 // Why do you want to be part of the ZEOS fractal?
-        string profile_about;               // A few words about yourself
-        map<name, string> profile_links;    // for instance: twitter.com => @mschoenebeck1 or SSH => ssh-rsa AAAAB3NzaC1yc2E
-        //vector<uint64_t> recent_respect;  // each element contains weekly REZPECT earned
-        //uint8_t meeting_counter;          // shows which element in the vector to adjust
-        //uint64_t avg_of_recent_respect    // this determines who gets to the msig
-
-
-        uint64_t primary_key() const { return user.value; }
-    };
-    typedef multi_index<"members"_n, member> members_t;
-*/
-
-     TABLE globalv2
-    {
-        uint64_t state;
-        uint64_t event_count;
-        uint64_t next_event_block_height;
-        uint64_t participate_duration;
-        uint64_t rooms_duration;
-        uint8_t fib_offset; 
-        //uint8_t global_meeting_counter;
-    };
-    singleton<"globalv2"_n, globalv2> _global;
-
-    TABLE memberv2
     {
         name user;                          // EOS account name
         bool is_approved;                   // is user approved member of fractal?
@@ -121,8 +82,8 @@ public:
         uint64_t primary_key() const { return user.value; }
         uint64_t by_secondary() const { return avg_respect; }
     };
-    typedef eosio::multi_index<"memberv2"_n, memberv2,
-    eosio::indexed_by<"memberv2"_n, eosio::const_mem_fun<memberv2, uint64_t,&memberv2::by_secondary>>> members_t;    
+    typedef eosio::multi_index<"members"_n, member,
+    eosio::indexed_by<"members"_n, eosio::const_mem_fun<member, uint64_t,&member::by_secondary>>> members_t;
 
     TABLE ability
     {

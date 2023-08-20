@@ -638,7 +638,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
         }
     }
 
-    auto members_idx = members.get_index<name("memberv2")>();
+    auto members_idx = members.get_index<name("members")>();
 
     vector<name> delegates;
 
