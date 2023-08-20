@@ -214,15 +214,33 @@ private:
 
     // an adaption of: https://cplusplus.com/reference/algorithm/shuffle/
     template<class RandomAccessIterator>
-    void my_shuffle(RandomAccessIterator first, RandomAccessIterator last)
+    void my_shuffle(RandomAccessIterator first, RandomAccessIterator last, uint32_t seed)
     {
         for(auto i = (last - first) - 1; i > 0; --i)
         {
-            rng_t rndnmbr("r4ndomnumb3r"_n, "r4ndomnumb3r"_n.value);
-            checksum256 x = rndnmbr.get().value;
-            uint64_t r = *reinterpret_cast<uint64_t*>(&x) % (i+1);
+            uint32_t r = seed % (i+1);
             my_swap(first[i], first[r]);
+            // source: https://stackoverflow.com/a/11946674/2340535
+            seed = (seed * 1103515245U + 12345U) & 0x7fffffffU;
         }
+    }
+
+    // a simple generic "shell sort" implementation
+    // borrowed from: https://www.softwaretestinghelp.com/sorting-techniques-in-cpp/#Shell_Sort
+    template <typename T, typename F>
+    int my_sort(T arr[], int N, F predicate)
+    {
+        for(int gap = N/2; gap > 0; gap /= 2) {
+            for(int i = gap; i < N; i += 1)
+            {
+                T temp = arr[i];
+                int j;
+                for(j = i; j >= gap && predicate(arr[j - gap], temp); j -= gap)
+                    arr[j] = arr[j - gap];
+                arr[j] = temp;
+            }
+        }
+        return 0;
     }
 
     void create_groups();

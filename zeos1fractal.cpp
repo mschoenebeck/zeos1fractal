@@ -20,6 +20,7 @@ void zeos1fractal::init(const uint64_t &first_event_block_height)
         first_event_block_height == 0 ? current_block_number() + 500 : first_event_block_height,
         360,    //  3 min
         1200,   // 10 min
+        0,      // fib offset
     }, _self);
 }
 
@@ -64,7 +65,7 @@ void zeos1fractal::changestate()
             //  g.global_meeting_counter++;
             //}
             
-            check_consensus(); //rename this to reflect all the actions that happen in sequence 
+            //check_consensus(); //rename this to reflect all the actions that happen in sequence 
               
             // TODO:
             // reset event tables
@@ -316,7 +317,10 @@ void zeos1fractal::create_groups()
     }
 
     // Shuffle the all_participants vector
-    my_shuffle(all_participants.begin(), all_participants.end());
+    rng_t rndnmbr("r4ndomnumb3r"_n, "r4ndomnumb3r"_n.value);
+    checksum256 x = rndnmbr.get().value;
+    uint32_t seed = *reinterpret_cast<uint32_t*>(&x);
+    my_shuffle(all_participants.begin(), all_participants.end(), seed);
 
     rooms_t rooms(_self, _self.value);
     auto num_participants = all_participants.size();
@@ -680,7 +684,10 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
 void zeos1fractal::testshuffle()
 {
     vector<uint64_t> v = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-    my_shuffle(v.begin(), v.end());
+    rng_t rndnmbr("r4ndomnumb3r"_n, "r4ndomnumb3r"_n.value);
+    checksum256 x = rndnmbr.get().value;
+    uint32_t seed = *reinterpret_cast<uint32_t*>(&x);
+    my_shuffle(v.begin(), v.end(), seed);
     string s = "";
     for(auto e : v)
     {
