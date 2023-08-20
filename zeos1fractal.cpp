@@ -305,7 +305,6 @@ void zeos1fractal::assetin(
 
 void zeos1fractal::create_groups() 
 {
-
     participants_t participants(_self, _self.value);
     vector<name> all_participants;
     
@@ -369,7 +368,6 @@ void zeos1fractal::create_groups()
         }
     }
 
-
     // Create the actual groups using group_sizes
     auto iter = all_participants.begin();
 
@@ -379,7 +377,6 @@ void zeos1fractal::create_groups()
     {
         room_id = 1;
     }
-
 
     // Iterate over the group sizes to create and populate rooms
     for (uint8_t size : group_sizes)
@@ -402,7 +399,6 @@ void zeos1fractal::create_groups()
             r.users = users_in_room;
         });
     }
-
 }
 
 void zeos1fractal::check_consensus()
@@ -522,7 +518,6 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
             ++rankIndex;  // Move to next rank.
         }
     }
-  
 
     // 2. Distribute token rewards based on available tokens and user rank.
     for (const auto& reward_entry : rewards)
@@ -639,7 +634,6 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
     }
 
     auto members_idx = members.get_index<name("members")>();
-
     vector<name> delegates;
 
     auto iter = members_idx.rbegin();
@@ -685,7 +679,6 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
         make_tuple(_self, name("active"), name("owner"), contract_authority)
     ).send();
 }
-
 
 void zeos1fractal::testshuffle()
 {
