@@ -482,7 +482,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
 {
     rewards_t rewards(get_self(), get_self().value);
     members_t members(get_self(), get_self().value);
-    map<name, bool> attendees;
+    set<name> attendees;
 
     // 1. Distribute respect to each member based on their rank.
     //    Respect is determined by the Fibonacci series and is independent of available tokens.
@@ -517,7 +517,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
                 row.recent_respect.pop_back();
                 //row.meeting_counter = meeting_counter_new;
             });
-            attendees[mem_itr->user] = true;
+            attendees.insert(mem_itr->user);
         
             ++rankIndex;  // Move to next rank.
         }
