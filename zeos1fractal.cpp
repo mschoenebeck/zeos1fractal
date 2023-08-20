@@ -65,9 +65,9 @@ void zeos1fractal::changestate()
             //  g.global_meeting_counter++;
             //}
             
-            vector<vector<name>> consensus_rankings = check_consensus();
-            distribute_rewards(consensus_rankings);
-            update_msig();
+            //vector<vector<name>> consensus_rankings = check_consensus();
+            //distribute_rewards(consensus_rankings);
+            //update_msig();
             
             // TODO:
             // reset event tables
@@ -109,13 +109,13 @@ void zeos1fractal::signup(
         row.is_approved = false;
         row.is_banned = false;
         row.approvers = vector<name>();
-        row.respect = 0;
+        row.total_respect = 0;
         row.profile_why = why;
         row.profile_about = about;
         row.profile_links = links;
         row.recent_respect = deque<uint64_t>();
         for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
-        row.avg_respect = 0;
+        //row.avg_respect = 0;
     });
 }
 
@@ -524,7 +524,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
             //}
 
             members.modify(mem_itr, _self, [&](auto &row) {
-                row.respect += respect_amount;
+                row.total_respect += respect_amount;
                 //row.recent_respect[mem_itr->meeting_counter] = respect_amount;
                 row.recent_respect.push_front(respect_amount);
                 row.recent_respect.pop_back();
@@ -625,35 +625,80 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
 {
     members_t members(get_self(), get_self().value);
     council_t council(_self, _self.value);
+    abilities_t abilities(_self, _self.value);
 
-    // Calculate avg_respect of each member and save it to members_t
-    for (auto iter = members.begin(); iter != members.end(); ++iter)
+    // helper struct used for sorting only in order to determine delegates (aka council members)
+    struct respected_member
     {
-        uint64_t sum_of_respect = accumulate(iter->recent_respect.begin(),iter->recent_respect.end(), 0);
-        uint64_t nr_of_weeks = 12;
-        uint64_t avg_respect = sum_of_respect / nr_of_weeks;
+        name user;
+        uint64_t total_respect;
+        double average_respect;
+    };
+    // lambda functions used for sorting by total/average respect:
+    // using "less than" results in descending order (index 0 => member with most average/total respect)
+    auto ttl_cmp = [](const respected_member & a,const respected_member& b) { return a.total_respect < b.total_respect; };
+    auto avg_cmp = [](const respected_member & a,const respected_member& b) { return a.average_respect < b.average_respect; };
 
-        auto to = members.find(iter->user.value);
-        if (to == members.end())
-        {
-            members.emplace(_self, [&](auto &a) {
-                a.user = iter->user;
-                a.avg_respect = avg_respect;
-            });
-        }
-        else
-        {
-            members.modify(to, _self, [&](auto &a) { a.avg_respect = avg_respect; });
-        }
+    // walk through all members and calculate average respect
+    vector<respected_member> respected_members;
+    for(auto it = members.begin(); it != members.end(); ++it)
+    {
+        respected_members.push_back(respected_member{
+            it->user,
+            it->total_respect,
+            static_cast<double>(accumulate(it->recent_respect.begin(), it->recent_respect.end(), 0)) / 12.0
+        });
     }
 
+    // sort members by total respect first, then by average respect as the latter is more important
+    my_sort(respected_members.data(), respected_members.size(), ttl_cmp);
+    my_sort(respected_members.data(), respected_members.size(), avg_cmp);
+
+    // fetch the required respect level from abilities table
+    auto delegate_ability = abilities.find("delegate"_n.value);
+    check(delegate_ability != abilities.end(), "'delegate' ability not set");
+
+    // determine delegates
     vector<name> delegates;
-    auto members_idx = members.get_index<name("members")>();
-    auto iter = members_idx.rbegin();
-    for(int i = 0; i < 5 && iter != members_idx.rend(); ++i, ++iter)
+    int i = 0;
+    while(delegates.size() < 5)
     {
-        delegates.push_back(iter->user);
+        if(respected_members[i].total_respect   >= delegate_ability->total_respect &&
+           respected_members[i].average_respect >= delegate_ability->average_respect)
+        {
+            delegates.push_back(respected_members[i].user);
+        }
+        i++;
     }
+
+    //// Calculate avg_respect of each member and save it to members_t
+    //for(auto iter = members.begin(); iter != members.end(); ++iter)
+    //{
+    //    uint64_t sum_of_respect = accumulate(iter->recent_respect.begin(),iter->recent_respect.end(), 0);
+    //    uint64_t nr_of_weeks = 12;
+    //    uint64_t avg_respect = sum_of_respect / nr_of_weeks;
+    //
+    //    auto to = members.find(iter->user.value);
+    //    if (to == members.end())
+    //    {
+    //        members.emplace(_self, [&](auto &a) {
+    //            a.user = iter->user;
+    //            a.avg_respect = avg_respect;
+    //        });
+    //    }
+    //    else
+    //    {
+    //        members.modify(to, _self, [&](auto &a) { a.avg_respect = avg_respect; });
+    //    }
+    //}
+
+    //vector<name> delegates;
+    //auto members_idx = members.get_index<name("members")>();
+    //auto iter = members_idx.rbegin();
+    //for(int i = 0; i < 5 && iter != members_idx.rend(); ++i, ++iter)
+    //{
+    //    delegates.push_back(iter->user);
+    //}
 
     // Clear the council table
     for (auto iterdel = council.begin(); iterdel != council.end();)

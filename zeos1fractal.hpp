@@ -69,26 +69,29 @@ public:
         bool is_approved;                   // is user approved member of fractal?
         bool is_banned;                     // is user banned from fractal?
         vector<name> approvers;             // list of member who approved this member
-        uint64_t respect;                   // amount of REZPECT
+        uint64_t total_respect;             // total amount of REZPECT
         string profile_why;                 // Why do you want to be part of the ZEOS fractal?
         string profile_about;               // A few words about yourself
         map<name, string> profile_links;    // for instance: twitter.com => @mschoenebeck1 or SSH => ssh-rsa AAAAB3NzaC1yc2E
         //vector<uint64_t> recent_respect;    // each element contains weekly REZPECT earned
         deque<uint64_t> recent_respect;    // each element contains weekly REZPECT earned
         //uint8_t meeting_counter;            // shows which element in the vector to adjust
-        uint64_t avg_respect;                // this determines who gets to the msig
+        //uint64_t avg_respect;                // this determines who gets to the msig
 
 
         uint64_t primary_key() const { return user.value; }
-        uint64_t by_secondary() const { return avg_respect; }
+        //uint64_t by_secondary() const { return avg_respect; }
     };
-    typedef eosio::multi_index<"members"_n, member,
-    eosio::indexed_by<"members"_n, eosio::const_mem_fun<member, uint64_t,&member::by_secondary>>> members_t;
+    typedef eosio::multi_index<"members"_n, member> members_t;
+    //eosio::indexed_by<"members"_n, eosio::const_mem_fun<member, uint64_t,&member::by_secondary>>> members_t;
 
     TABLE ability
     {
-        name name;                          // name of the ability
-        uint64_t respect;                   // amount of REZPECT required to unlock
+        name name;                  // name of the ability
+        uint64_t total_respect;     // amount of REZPECT required to unlock
+        double average_respect;     // average respect required to unlock
+
+        uint64_t primary_key() const { return name.value; }
     };
     typedef multi_index<"abilities"_n, ability> abilities_t;
 
