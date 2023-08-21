@@ -6,15 +6,16 @@ zeos1fractal::zeos1fractal(
     name code,
     datastream<const char *> ds
 ) : contract(self, code, ds),
-    _global(_self, _self.value)
+    _globalv2(_self, _self.value)
 {}
+
 
 void zeos1fractal::init(const uint64_t &first_event_block_height)
 {
     require_auth(_self);
     check(first_event_block_height == 0 || first_event_block_height > static_cast<uint64_t>(current_block_number()), "first event must take place in the future");
 
-    _global.set({
+    _globalv2.set({
         STATE_IDLE,
         0,
         first_event_block_height == 0 ? current_block_number() + 500 : first_event_block_height,
@@ -47,13 +48,14 @@ void zeos1fractal::init(const uint64_t &first_event_block_height)
             row.average_respect = ability.avg_respect;
         });
     }
+   
 }
 
 void zeos1fractal::changestate()
 {
     // anyone can execute this action
-    check(_global.exists(), "contract not initialized");
-    auto g = _global.get();
+    check(_globalv2.exists(), "contract not initialized");
+    auto g = _globalv2.get();
     uint64_t cbn = static_cast<uint64_t>(current_block_number());
 
     switch(g.state)
@@ -80,7 +82,16 @@ void zeos1fractal::changestate()
             g.state = STATE_IDLE;
             g.next_event_block_height = g.next_event_block_height + 1209600; // add one week of blocks
             g.event_count++;
-
+            
+            //if (g.global_meeting_counter == 12) 
+            //{
+            //  g.global_meeting_counter = 0;
+            //} 
+            //else 
+            //{
+            //  g.global_meeting_counter++;
+            //}
+            
             vector<vector<name>> consensus_rankings = check_consensus();
             distribute_rewards(consensus_rankings);
             determine_council();
@@ -91,18 +102,18 @@ void zeos1fractal::changestate()
         break;
     }
 
-    _global.set(g, _self);
+    _globalv2.set(g, _self);
 }
 
 void zeos1fractal::setevent(const uint64_t& block_height)
 {
     require_auth(_self);
-    check(_global.exists(), "contract not initialized");
+    check(_globalv2.exists(), "contract not initialized");
     check(block_height > current_block_number(), "must be in the future");
-    auto g = _global.get();
+    auto g = _globalv2.get();
     check(g.state == STATE_IDLE, "only in IDLE state");
     g.next_event_block_height = block_height;
-    _global.set(g, _self);
+    _globalv2.set(g, _self);
 }
 
 void zeos1fractal::setability(
@@ -142,8 +153,8 @@ void zeos1fractal::signup(
 )
 {
     require_auth(user);
-    check(_global.exists(), "contract not initialized");
-    members_t members(_self, _self.value);
+    check(_globalv2.exists(), "contract not initialized");
+    membersv2_t members(_self, _self.value);
     auto usr = members.find(user.value);
     check(usr == members.end(), "user already signed up");
     //UI will automatically read the user's account name so should not be a problem, but I'd still add it.
@@ -170,8 +181,8 @@ void zeos1fractal::approve(
 )
 {
     require_auth(user);
-    check(_global.exists(), "contract not initialized");
-    members_t members(_self, _self.value);
+    check(_globalv2.exists(), "contract not initialized");
+    membersv2_t members(_self, _self.value);
     auto usr_to_appr = members.find(user_to_approve.value);
     check(usr_to_appr != members.end(), "user_to_approve doesn't exist");
 
@@ -207,11 +218,11 @@ void zeos1fractal::approve(
 void zeos1fractal::participate(const name &user)
 {
     require_auth(user);
-    check(_global.exists(), "contract not initialized");
-    auto g = _global.get();
+    check(_globalv2.exists(), "contract not initialized");
+    auto g = _globalv2.get();
     check(g.state == STATE_PARTICIPATE, "can only join during PARTICIPATE phase");
 
-    members_t members(_self, _self.value);
+    membersv2_t members(_self, _self.value);
     auto usr = members.find(user.value);
     check(usr != members.end(), "user is not a member");
     check(usr->is_approved, "user is not approved");
@@ -539,7 +550,7 @@ vector<vector<name>> zeos1fractal::check_consensus()
 void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
 {
     rewards_t rewards(get_self(), get_self().value);
-    members_t members(get_self(), get_self().value);
+    membersv2_t members(get_self(), get_self().value);
     set<name> attendees;
 
     // 1. Distribute respect to each member based on their rank.
@@ -553,14 +564,27 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
         for (const auto &acc : rank)
         {
             // Calculate respect based on the Fibonacci series.
-            auto respect_amount = static_cast<int64_t>(fib(rankIndex + 5));
+            auto fibAmount = static_cast<int64_t>(fib(rankIndex + 5));
+            auto respect_amount = static_cast<int64_t>(fibAmount * pow(10, 4));
 
             auto mem_itr = members.find(acc.value);
 
+            //uint8_t meeting_counter_new;
+            //if (mem_itr->meeting_counter == 12)
+            //{
+            //    meeting_counter_new = 0;
+            //}
+            //else
+            //{
+            //    meeting_counter_new = mem_itr->meeting_counter + 1;
+            //}
+
             members.modify(mem_itr, _self, [&](auto &row) {
                 row.total_respect += respect_amount;
+                //row.recent_respect[mem_itr->meeting_counter] = respect_amount;
                 row.recent_respect.push_front(respect_amount);
                 row.recent_respect.pop_back();
+                //row.meeting_counter = meeting_counter_new;
             });
             attendees.insert(mem_itr->user);
         
@@ -633,15 +657,21 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
         });
     }
 
-    auto g = _global.get();
+    // Loop through the members who did not participate and update their recent_respect to 0 and meeting_counter
+    auto g = _globalv2.get();
     for (auto memb_itr = members.begin(); memb_itr != members.end(); ++memb_itr)
     {
+        // Check if member's meeting_counter is different from global_meeting_counter
+        //if (memb_itr->meeting_counter != g.global_meeting_counter)
+        // Check if this member attended this meeting
         if(attendees.count(memb_itr->user) == 0)
         {
             // Modify the member's row
             members.modify(memb_itr, get_self(), [&](auto &row) {
+                //row.recent_respect[memb_itr->meeting_counter] = 0;
                 row.recent_respect.push_front(0);
                 row.recent_respect.pop_back();
+                //row.meeting_counter = g.global_meeting_counter;
             });
         }
     }
@@ -649,7 +679,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
 
  void zeos1fractal::determine_council()
 {
-    members_t members(get_self(), get_self().value);
+    membersv2_t members(get_self(), get_self().value);
     council_t council(_self, _self.value);
     abilities_t abilities(_self, _self.value);
 
@@ -684,7 +714,6 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
     auto delegate_ability = abilities.find("delegate"_n.value);
     check(delegate_ability != abilities.end(), "'delegate' ability not set");
 
-    // determine delegates
     vector<name> delegates;
     int i = 0;
     while(delegates.size() < 5 && i < respected_members.size())
@@ -697,44 +726,73 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
         i++;
     }
     if(delegates.size() == 5)
+{
+
+    //// Calculate avg_respect of each member and save it to membersv2_t
+    //for(auto iter = members.begin(); iter != members.end(); ++iter)
+    //{
+    //    uint64_t sum_of_respect = accumulate(iter->recent_respect.begin(),iter->recent_respect.end(), 0);
+    //    uint64_t nr_of_weeks = 12;
+    //    uint64_t avg_respect = sum_of_respect / nr_of_weeks;
+    //
+    //    auto to = members.find(iter->user.value);
+    //    if (to == members.end())
+    //    {
+    //        members.emplace(_self, [&](auto &a) {
+    //            a.user = iter->user;
+    //            a.avg_respect = avg_respect;
+    //        });
+    //    }
+    //    else
+    //    {
+    //        members.modify(to, _self, [&](auto &a) { a.avg_respect = avg_respect; });
+    //    }
+    //}
+
+    //vector<name> delegates;
+    //auto members_idx = members.get_index<name("members")>();
+    //auto iter = members_idx.rbegin();
+    //for(int i = 0; i < 5 && iter != members_idx.rend(); ++i, ++iter)
+    //{
+    //    delegates.push_back(iter->user);
+    //}
+
+    // Clear the council table
+    for (auto iterdel = council.begin(); iterdel != council.end();)
     {
-        // Clear the council table
-        for (auto iterdel = council.begin(); iterdel != council.end();)
-        {
-            council.erase(iterdel++);
-        }
-
-        // Populate council table
-        for (const auto& delegate : delegates)
-        {
-            council.emplace(_self, [&](auto &a) { a.delegate = delegate; });
-        }
-
-        vector<name> alphabetically_ordered_delegates;
-        for (auto iter = council.begin(); iter != council.end(); iter++)
-        {
-            alphabetically_ordered_delegates.push_back(iter->delegate);
-        }
-
-        vector<permission_level_weight> accounts;
-        for (const auto& delegate : alphabetically_ordered_delegates)
-        {
-            accounts.push_back({.permission = permission_level{delegate, "active"_n}, .weight = (uint16_t)1});
-        }
-
-        authority contract_authority;
-        contract_authority.threshold = 4;
-        contract_authority.keys = {};
-        contract_authority.accounts = accounts;
-        contract_authority.waits = {};
-
-        action(
-            permission_level{_self, name("owner")}, name("eosio"), name("updateauth"),
-            make_tuple(_self, name("active"), name("owner"), contract_authority)
-        ).send();
+        council.erase(iterdel++);
     }
-}
 
+    // Populate council table
+    for (const auto& delegate : delegates)
+    {
+        council.emplace(_self, [&](auto &a) { a.delegate = delegate; });
+    }
+
+    vector<name> alphabetically_ordered_delegates;
+    for (auto iter = council.begin(); iter != council.end(); iter++)
+    {
+        alphabetically_ordered_delegates.push_back(iter->delegate);
+    }
+
+    vector<permission_level_weight> accounts;
+    for (const auto& delegate : alphabetically_ordered_delegates)
+    {
+        accounts.push_back({.permission = permission_level{delegate, "active"_n}, .weight = (uint16_t)1});
+    }
+
+    authority contract_authority;
+    contract_authority.threshold = 4;
+    contract_authority.keys = {};
+    contract_authority.accounts = accounts;
+    contract_authority.waits = {};
+
+    action(
+        permission_level{_self, name("owner")}, name("eosio"), name("updateauth"),
+        make_tuple(_self, name("active"), name("owner"), contract_authority)
+    ).send();
+}
+}
 void zeos1fractal::testshuffle()
 {
     vector<uint64_t> v = {1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -748,4 +806,128 @@ void zeos1fractal::testshuffle()
         s += to_string(e) + ", ";
     }
     check(0, s);
+}
+
+void zeos1fractal::insertrank(name user, uint64_t room, std::vector<name> rankings) {
+
+    rankings_t rankings_table(_self, _self.value);
+    auto itr = rankings_table.find(user.value);
+
+    // If the user's ranking does not exist, create a new one
+    if (itr == rankings_table.end()) 
+    {
+        rankings_table.emplace(_self, [&](auto &r) {
+            r.user = user;
+            r.room = room;
+            r.rankings = rankings;
+        });
+    }
+    // If the user's ranking already exists, update the existing record
+    else 
+    {
+        rankings_table.modify(itr, _self, [&](auto &r) {
+            r.room = room;         // Update the room
+            r.rankings = rankings; // Update the rankings
+        });
+    }
+
+    // Handle members table
+    membersv2_t members(_self, _self.value);
+    auto usr = members.find(user.value);
+
+    // If the user is not in the members table, create a new one
+    if (usr == members.end()) 
+    {
+        members.emplace(_self, [&](auto &row) {
+            row.user = user;
+            row.is_approved = false;
+            row.is_banned = false;
+            row.approvers = vector<name>();
+            row.total_respect = 0;
+            row.profile_why = "why";
+            row.profile_about = "why";
+            row.recent_respect = deque<uint64_t>();
+            for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
+        });
+    }
+
+    // Handle rooms table
+    rooms_t rooms(_self, _self.value);
+    auto room_itr = rooms.find(room);
+
+    if (room_itr == rooms.end()) 
+    {
+        rooms.emplace(_self, [&](auto &r) {
+            r.id = room;
+            r.users = {user}; // initialize with just this user
+        });
+    } 
+    else 
+    {
+        // Ensure the user is not already in the room. 
+        // If not, append the user to the list.
+        bool user_exists = std::find(room_itr->users.begin(), room_itr->users.end(), user) != room_itr->users.end();
+        if (!user_exists) 
+        {
+            rooms.modify(room_itr, _self, [&](auto &r) {
+                r.users.push_back(user);
+            });
+        }
+    }
+}
+
+
+
+
+void zeos1fractal::populate() 
+{
+
+    // Clear the rooms table
+    rooms_t rooms(_self, _self.value);
+    auto room_itr = rooms.begin();
+    while (room_itr != rooms.end()) {
+        room_itr = rooms.erase(room_itr);
+    }
+
+  // Room 1 (3-user group with consensus)
+insertrank("vladislav.x"_n, 1, {"mschoenebeck"_n, "vladislav.x"_n, "gnomegenomes"_n});
+insertrank("mschoenebeck"_n, 1, {"mschoenebeck"_n, "vladislav.x"_n, "gnomegenomes"_n});
+insertrank("gnomegenomes"_n, 1, {"mschoenebeck"_n, "vladislav.x"_n, "gnomegenomes"_n});
+
+insertrank("ncoltd123451"_n, 2, {"ncoltd123451"_n, "lennyaccount"_n, "kyotokimura2"_n});
+insertrank("lennyaccount"_n, 2, {"ncoltd123451"_n, "lennyaccount"_n, "kyotokimura2"_n});
+insertrank("kyotokimura2"_n, 2, {"ncoltd123451"_n, "lennyaccount"_n, "kyotokimura2"_n});
+
+// Room 11 (6-user group without consensus)
+insertrank("2542pk.ftw"_n, 11, {"2542pk.ftw"_n, "2luminaries1"_n, "2wkuti52.ftw"_n, "3mg.ftw"_n, "3poalica.ftw"_n, "3rica.ftw"_n});
+insertrank("2luminaries1"_n, 11, {"2luminaries1"_n, "2wkuti52.ftw"_n, "3rica.ftw"_n, "2542pk.ftw"_n, "3mg.ftw"_n, "3poalica.ftw"_n});
+insertrank("2wkuti52.ftw"_n, 11, {"2wkuti52.ftw"_n, "3rica.ftw"_n, "2542pk.ftw"_n, "2luminaries1"_n, "3mg.ftw"_n, "3poalica.ftw"_n});
+insertrank("3mg.ftw"_n, 11, {"3mg.ftw"_n, "2wkuti52.ftw"_n, "3rica.ftw"_n, "2542pk.ftw"_n, "2luminaries1"_n, "3poalica.ftw"_n});
+insertrank("3poalica.ftw"_n, 11, {"3poalica.ftw"_n, "3mg.ftw"_n, "2542pk.ftw"_n, "2luminaries1"_n, "2wkuti52.ftw"_n, "3rica.ftw"_n});
+insertrank("3rica.ftw"_n, 11, {"3rica.ftw"_n, "3poalica.ftw"_n, "3mg.ftw"_n, "2wkuti52.ftw"_n, "2luminaries1"_n, "2542pk.ftw"_n});
+
+// Room 12 (6-user group with half the vectors identical) no consensus
+insertrank("3xfyanfwnqum"_n, 12, {"3xfyanfwnqum"_n, "41aekkfnnfkk"_n, "43233dh.ftw"_n, "443fox.ftw"_n, "452345234523"_n, "4crypto.ftw"_n});
+insertrank("41aekkfnnfkk"_n, 12, {"3xfyanfwnqum"_n, "41aekkfnnfkk"_n, "43233dh.ftw"_n, "443fox.ftw"_n, "452345234523"_n, "4crypto.ftw"_n});
+insertrank("43233dh.ftw"_n, 12, {"3xfyanfwnqum"_n, "41aekkfnnfkk"_n, "43233dh.ftw"_n, "443fox.ftw"_n, "452345234523"_n, "4crypto.ftw"_n});
+insertrank("443fox.ftw"_n, 12, {"443fox.ftw"_n, "452345234523"_n, "4crypto.ftw"_n, "3xfyanfwnqum"_n, "41aekkfnnfkk"_n, "43233dh.ftw"_n});
+insertrank("452345234523"_n, 12, {"452345234523"_n, "4crypto.ftw"_n, "443fox.ftw"_n, "43233dh.ftw"_n, "41aekkfnnfkk"_n, "3xfyanfwnqum"_n});
+insertrank("4crypto.ftw"_n, 12, {"4crypto.ftw"_n, "3xfyanfwnqum"_n, "41aekkfnnfkk"_n, "43233dh.ftw"_n, "443fox.ftw"_n, "452345234523"_n});
+
+// Room 10 (6-user group with consensus)
+insertrank("5115jess.ftw"_n, 10, {"5115jess.ftw"_n, "51lucifer515"_n, "5514.ftw"_n, "5ht4zibb2rxk"_n, "5theotheos54"_n, "5viuqsej.ftw"_n});
+insertrank("51lucifer515"_n, 10, {"5115jess.ftw"_n, "51lucifer515"_n, "5514.ftw"_n, "5ht4zibb2rxk"_n, "5theotheos54"_n, "5viuqsej.ftw"_n});
+insertrank("5514.ftw"_n, 10, {"5115jess.ftw"_n, "51lucifer515"_n, "5514.ftw"_n, "5ht4zibb2rxk"_n, "5theotheos54"_n, "5viuqsej.ftw"_n});
+insertrank("5ht4zibb2rxk"_n, 10, {"5115jess.ftw"_n, "51lucifer515"_n, "5514.ftw"_n, "5ht4zibb2rxk"_n, "5theotheos54"_n, "5viuqsej.ftw"_n});
+insertrank("5theotheos54"_n, 10, {"5115jess.ftw"_n, "51lucifer515"_n, "5514.ftw"_n, "5ht4zibb2rxk"_n, "5theotheos54"_n, "5viuqsej.ftw"_n});
+insertrank("5viuqsej.ftw"_n, 10, {"5115jess.ftw"_n, "51lucifer515"_n, "5514.ftw"_n, "5ht4zibb2rxk"_n, "5theotheos54"_n, "5viuqsej.ftw"_n});
+
+}
+
+void zeos1fractal::three() 
+{
+    vector<vector<name>> consensus_rankings = check_consensus();
+    distribute_rewards(consensus_rankings);
+    determine_council();
+
 }
