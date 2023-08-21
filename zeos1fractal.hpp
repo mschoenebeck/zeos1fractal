@@ -194,6 +194,7 @@ public:
     ACTION init(const uint64_t& first_event_block_height);
     ACTION changestate();
     ACTION setevent(const uint64_t& block_height);
+    ACTION setability(const name& ability_name, const uint64_t& total_respect, const double& average_respect);
     ACTION signup(const name& user, const string& why, const string& about, const map<name, string>& links);
     ACTION approve(const name& user, const name& user_to_approve);
     ACTION participate(const name& user);
@@ -251,5 +252,5 @@ private:
     void create_groups();
     vector<vector<name>> check_consensus();
     void distribute_rewards(const vector<vector<name>> &ranks);
-    void update_msig();
+    void determine_council();
 };

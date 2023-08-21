@@ -22,6 +22,31 @@ void zeos1fractal::init(const uint64_t &first_event_block_height)
         1200,   // 10 min
         0,      // fib offset
     }, _self);
+
+    abilities_t abilities(_self, _self.value);
+
+    // Define a struct inside the action for better readability
+    struct ability_info {
+        name ability_name;
+        uint64_t total_respect;
+        double avg_respect;
+    };
+
+    // Define initial abilities
+    vector<ability_info> initial_abilities = {
+        {"delegate"_n, 111, 9.25},
+        {"approver"_n, 56, 4.66}
+    };
+
+    // Add initial abilities to the table
+    for (const auto& ability : initial_abilities) 
+    {
+        abilities.emplace(_self, [&](auto &row) {
+            row.name = ability.ability_name;
+            row.total_respect = ability.total_respect;
+            row.average_respect = ability.avg_respect;
+        });
+    }
 }
 
 void zeos1fractal::changestate()
@@ -67,7 +92,7 @@ void zeos1fractal::changestate()
             
             vector<vector<name>> consensus_rankings = check_consensus();
             distribute_rewards(consensus_rankings);
-            update_msig();
+            determine_council();
             
             // TODO:
             // reset event tables
@@ -87,6 +112,35 @@ void zeos1fractal::setevent(const uint64_t& block_height)
     check(g.state == STATE_IDLE, "only in IDLE state");
     g.next_event_block_height = block_height;
     _global.set(g, _self);
+}
+
+void zeos1fractal::setability(
+    const name& ability_name, 
+    const uint64_t& total_respect, 
+    const double& average_respect
+)
+{
+    require_auth(_self); 
+
+    abilities_t abilities(_self, _self.value);
+
+    auto existing_ability = abilities.find(ability_name.value);
+    
+    if (existing_ability != abilities.end()) 
+    {
+        abilities.modify(existing_ability, _self, [&](auto &row) {
+            row.total_respect = total_respect;
+            row.average_respect = average_respect;
+        });
+    }
+    else
+    {
+        abilities.emplace(_self, [&](auto &row) {
+            row.name = ability_name;
+            row.total_respect = total_respect;
+            row.average_respect = average_respect;
+        });
+    }
 }
 
 void zeos1fractal::signup(
@@ -621,7 +675,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
     }
 }
 
- void zeos1fractal::update_msig()
+ void zeos1fractal::determine_council()
 {
     members_t members(get_self(), get_self().value);
     council_t council(_self, _self.value);
