@@ -20,7 +20,7 @@ void zeos1fractal::init(const uint64_t &first_event_block_height)
         first_event_block_height == 0 ? current_block_number() + 500 : first_event_block_height,
         360,    //  3 min
         1200,   // 10 min
-        0,      // fib offset
+        3,      // fib offset, I suggest to set it to 3, which produces min RESPECT of 2 and max RESPECT of 21 (that's how it is in fractally whitepaper too)
     }, _self);
 
     abilities_t abilities(_self, _self.value);
@@ -84,9 +84,7 @@ void zeos1fractal::changestate()
             vector<vector<name>> consensus_rankings = check_consensus();
             distribute_rewards(consensus_rankings);
             determine_council();
-            
-            // TODO:
-            // reset event tables
+            cleartables();
         }
         break;
     }
@@ -197,7 +195,22 @@ void zeos1fractal::approve(
         auto usr = members.find(user.value);
         check(usr != members.end(), "user doesn't exist");
         check(usr->is_approved, "user is not approved");
-        // TODO: check if user has 'ability' to approve
+
+        // Lookup the ability requirements for approving from the abilities table
+        abilities_t abilities(_self, _self.value);
+        auto ability_itr = abilities.find("approver"_n.value);
+        check(ability_itr != abilities.end(), "approver ability not found");
+
+        // Check if user has enough total respect
+        check(usr->total_respect >= ability_itr->total_respect, "not enough total respect");
+
+        // Calculate the average recent respect of the user
+        double user_avg_recent_respect = static_cast<double>(accumulate(usr->recent_respect.begin(), usr->recent_respect.end(), 0)) / 12.0;
+
+        // Check if user has enough average recent respect
+        check(user_avg_recent_respect >= ability_itr->average_respect, "not enough average respect");
+
+        // If both conditions are met, add user to the approvers list
         members.modify(usr_to_appr, _self, [&](auto &row) {
             row.approvers.push_back(user);
         });
@@ -540,6 +553,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
 {
     rewards_t rewards(get_self(), get_self().value);
     members_t members(get_self(), get_self().value);
+    auto g = _global.get();
     set<name> attendees;
 
     // 1. Distribute respect to each member based on their rank.
@@ -553,7 +567,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
         for (const auto &acc : rank)
         {
             // Calculate respect based on the Fibonacci series.
-            auto respect_amount = static_cast<int64_t>(fib(rankIndex + 5));
+            auto respect_amount = static_cast<int64_t>(fib(rankIndex + g.fib_offset));
 
             auto mem_itr = members.find(acc.value);
 
@@ -672,7 +686,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
         respected_members.push_back(respected_member{
             it->user,
             it->total_respect,
-            static_cast<double>(accumulate(it->recent_respect.begin(), it->recent_respect.end(), 0)) / 12.0
+            static_cast<double>(accumulate(it->recent_respect.begin(), it->recent_respect.end(), 0)) / 12.0 //do we actually need to do the divison here
         });
     }
 
@@ -732,6 +746,33 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
             permission_level{_self, name("owner")}, name("eosio"), name("updateauth"),
             make_tuple(_self, name("active"), name("owner"), contract_authority)
         ).send();
+    }
+}
+
+void zeos1fractal::cleartables() 
+{
+    // Clear participants table
+    participants_t participants(_self, _self.value);
+    auto part_itr = participants.begin();
+    while(part_itr != participants.end()) 
+    {
+        part_itr = participants.erase(part_itr);
+    }
+
+    // Clear rooms table
+    rooms_t rooms(_self, _self.value);
+    auto room_itr = rooms.begin();
+    while(room_itr != rooms.end()) 
+    {
+        room_itr = rooms.erase(room_itr);
+    }
+
+    // Clear rankings table
+    rankings_t rankings(_self, _self.value);
+    auto rank_itr = rankings.begin();
+    while(rank_itr != rankings.end()) 
+    {
+        rank_itr = rankings.erase(rank_itr);
     }
 }
 

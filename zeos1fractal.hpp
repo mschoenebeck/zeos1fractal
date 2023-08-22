@@ -247,4 +247,5 @@ private:
     vector<vector<name>> check_consensus();
     void distribute_rewards(const vector<vector<name>> &ranks);
     void determine_council();
+    void cleartables();
 };

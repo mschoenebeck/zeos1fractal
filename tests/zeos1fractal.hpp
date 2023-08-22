@@ -257,4 +257,6 @@ private:
     void distribute_rewards(const vector<vector<name>> &ranks);
     void determine_council();
     void insertrank(name user, uint64_t room, std::vector<name> rankings);
+    void cleartables();
+
 };

@@ -208,7 +208,22 @@ void zeos1fractal::approve(
         auto usr = members.find(user.value);
         check(usr != members.end(), "user doesn't exist");
         check(usr->is_approved, "user is not approved");
-        // TODO: check if user has 'ability' to approve
+
+        // Lookup the ability requirements for approving from the abilities table
+       abilities_t abilities(_self, _self.value);
+        auto ability_itr = abilities.find("approver"_n.value);
+        check(ability_itr != abilities.end(), "approver ability not found");
+
+        // Check if user has enough total respect
+        check(usr->total_respect >= ability_itr->total_respect, "not enough total respect");
+
+        // Calculate the average recent respect of the user
+        double user_avg_recent_respect = static_cast<double>(accumulate(usr->recent_respect.begin(), usr->recent_respect.end(), 0)) / 12.0;
+
+        // Check if user has enough average recent respect
+        check(user_avg_recent_respect >= ability_itr->average_respect, "not enough average respect");
+
+        // If both conditions are met, add user to the approvers list
         members.modify(usr_to_appr, _self, [&](auto &row) {
             row.approvers.push_back(user);
         });
@@ -930,6 +945,33 @@ void zeos1fractal::three()
     distribute_rewards(consensus_rankings);
     determine_council();
 
+}
+
+void zeos1fractal::cleartables() 
+{
+    // Clear participants table
+    participants_t participants(_self, _self.value);
+    auto part_itr = participants.begin();
+    while(part_itr != participants.end()) 
+    {
+        part_itr = participants.erase(part_itr);
+    }
+
+    // Clear rooms table
+    rooms_t rooms(_self, _self.value);
+    auto room_itr = rooms.begin();
+    while(room_itr != rooms.end()) 
+    {
+        room_itr = rooms.erase(room_itr);
+    }
+
+    // Clear rankings table
+    rankings_t rankings(_self, _self.value);
+    auto rank_itr = rankings.begin();
+    while(rank_itr != rankings.end()) 
+    {
+        rank_itr = rankings.erase(rank_itr);
+    }
 }
 
 void zeos1fractal::claimtokens(const name& user)
