@@ -931,3 +931,22 @@ void zeos1fractal::three()
     determine_council();
 
 }
+
+void zeos1fractal::claimtokens(const name& user)
+{
+    require_auth(user);
+
+    claim_t claims(_self, user.value);
+
+    for (auto itr = claims.begin(); itr != claims.end();) 
+    {
+        action(
+            permission_level{_self, "active"_n},
+            itr->quantity.contract,   // This is the token contract
+            "transfer"_n,
+            make_tuple(_self, user, itr->quantity.quantity, string("Claimed tokens from ZEOS fractal."))
+        ).send();
+
+        itr = claims.erase(itr);
+    }
+}

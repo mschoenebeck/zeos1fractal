@@ -735,6 +735,25 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
     }
 }
 
+void zeos1fractal::claimtokens(const name& user)
+{
+    require_auth(user);
+
+    claim_t claims(_self, user.value);
+
+    for (auto itr = claims.begin(); itr != claims.end();) 
+    {
+        action(
+            permission_level{_self, "active"_n},
+            itr->quantity.contract,   // This is the token contract
+            "transfer"_n,
+            make_tuple(_self, user, itr->quantity.quantity, string("Claimed tokens from ZEOS fractal."))
+        ).send();
+
+        itr = claims.erase(itr);
+    }
+}
+
 void zeos1fractal::testshuffle()
 {
     vector<uint64_t> v = {1, 2, 3, 4, 5, 6, 7, 8, 9};

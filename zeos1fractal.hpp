@@ -59,7 +59,6 @@ public:
         uint64_t participate_duration;
         uint64_t rooms_duration;
         uint8_t fib_offset;
-        //uint8_t global_meeting_counter;
     };
     singleton<"global"_n, global> _global;
 
@@ -73,17 +72,11 @@ public:
         string profile_why;                 // Why do you want to be part of the ZEOS fractal?
         string profile_about;               // A few words about yourself
         map<name, string> profile_links;    // for instance: twitter.com => @mschoenebeck1 or SSH => ssh-rsa AAAAB3NzaC1yc2E
-        //vector<uint64_t> recent_respect;    // each element contains weekly REZPECT earned
         deque<uint64_t> recent_respect;    // each element contains weekly REZPECT earned
-        //uint8_t meeting_counter;            // shows which element in the vector to adjust
-        //uint64_t avg_respect;                // this determines who gets to the msig
-
 
         uint64_t primary_key() const { return user.value; }
-        //uint64_t by_secondary() const { return avg_respect; }
     };
     typedef eosio::multi_index<"members"_n, member> members_t;
-    //eosio::indexed_by<"members"_n, eosio::const_mem_fun<member, uint64_t,&member::by_secondary>>> members_t;
 
     TABLE ability
     {
@@ -200,6 +193,7 @@ public:
     ACTION participate(const name& user);
     ACTION submitranks(const name& user, const uint64_t& group_id, const vector<name>& rankings);
     ACTION authenticate(const name& user, const uint64_t& event, const uint64_t& room);
+    ACTION claimtokens(const name& user); 
     ACTION testshuffle();
 
     [[eosio::on_notify("*::transfer")]]
