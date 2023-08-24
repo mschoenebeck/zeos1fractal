@@ -143,8 +143,6 @@ void zeos1fractal::signup(
     members_t members(_self, _self.value);
     auto usr = members.find(user.value);
     check(usr == members.end(), "user already signed up");
-    //UI will automatically read the user's account name so should not be a problem, but I'd still add it.
-    //check(is_account(user), "account " + acc.to_string() + " does not exist");
 
     members.emplace(user, [&](auto &row) {
         row.user = user;
@@ -157,7 +155,6 @@ void zeos1fractal::signup(
         row.profile_links = links;
         row.recent_respect = deque<uint64_t>();
         for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
-        //row.avg_respect = 0;
     });
 }
 
@@ -551,7 +548,6 @@ vector<vector<name>> zeos1fractal::check_consensus()
     }
 
     // all_rankings_with_consensus is passed to the function to distribute RESPECT and make other tokens claimable
-    // distribute_rewards(all_rankings_with_consensus);
     return all_rankings_with_consensus;
 
 }
@@ -692,7 +688,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
         respected_members.push_back(respected_member{
             it->user,
             it->total_respect,
-            static_cast<double>(accumulate(it->recent_respect.begin(), it->recent_respect.end(), 0)) / 12.0 //do we actually need to do the divison here
+            static_cast<double>(accumulate(it->recent_respect.begin(), it->recent_respect.end(), 0)) / 12.0
         });
     }
 
@@ -793,7 +789,7 @@ void zeos1fractal::claimrewards(const name& user)
     {
         action(
             permission_level{_self, "active"_n},
-            itr->quantity.contract,   // This is the token contract
+            itr->quantity.contract,
             "transfer"_n,
             make_tuple(_self, user, itr->quantity.quantity, string("Claimed tokens from ZEOS fractal."))
         ).send();
