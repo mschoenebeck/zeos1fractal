@@ -8,23 +8,19 @@
 #include <eosio/crypto.hpp>
 #include <numeric>
 
-
 using namespace eosio;
 using namespace std;
 
-namespace 
-{
-//6 is maxgroupsize
-constexpr std::array<double, 6> polyCoeffs{
-    1, 1.618, 2.617924, 4.235801032, 6.85352607, 11.08900518};
+// 6 is maxgroupsize
+constexpr std::array<double, 6> polyCoeffs {
+    1, 1.618, 2.617924, 4.235801032, 6.85352607, 11.08900518
+};
 
 // Other helpers
-auto fib(uint8_t index) -> decltype(index) { //
-  return (index <= 1) ? index : fib(index - 1) + fib(index - 2);
+auto fib(uint8_t index) -> decltype(index)
+{
+    return (index <= 1) ? index : fib(index - 1) + fib(index - 2);
 };
-}
-
-
 
 CONTRACT r4ndomnumb3r : public contract
 {
