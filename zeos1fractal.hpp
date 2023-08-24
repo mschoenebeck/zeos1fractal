@@ -68,11 +68,11 @@ public:
         bool is_approved;                   // is user approved member of fractal?
         bool is_banned;                     // is user banned from fractal?
         vector<name> approvers;             // list of member who approved this member
+        deque<uint64_t> recent_respect;     // each element contains weekly REZPECT earned
         uint64_t total_respect;             // total amount of REZPECT
         string profile_why;                 // Why do you want to be part of the ZEOS fractal?
         string profile_about;               // A few words about yourself
         map<name, string> profile_links;    // for instance: twitter.com => @mschoenebeck1 or SSH => ssh-rsa AAAAB3NzaC1yc2E
-        deque<uint64_t> recent_respect;    // each element contains weekly REZPECT earned
 
         uint64_t primary_key() const { return user.value; }
     };
@@ -193,8 +193,7 @@ public:
     ACTION participate(const name& user);
     ACTION submitranks(const name& user, const uint64_t& group_id, const vector<name>& rankings);
     ACTION authenticate(const name& user, const uint64_t& event, const uint64_t& room);
-    ACTION claimtokens(const name& user); 
-    ACTION testshuffle();
+    ACTION claimrewards(const name& user);
 
     [[eosio::on_notify("*::transfer")]]
     void assetin(name from, name to, asset quantity, string memo);

@@ -203,7 +203,7 @@ public:
     ACTION testshuffle();
     ACTION populate();
     ACTION three();
-    ACTION claimtokens(const name& user);
+    ACTION claimrewards(const name& user);
 
     [[eosio::on_notify("*::transfer")]]
     void assetin(name from, name to, asset quantity, string memo);

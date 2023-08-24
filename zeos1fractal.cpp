@@ -81,8 +81,7 @@ void zeos1fractal::changestate()
             g.next_event_block_height = g.next_event_block_height + 1209600; // add one week of blocks
             g.event_count++;
 
-            vector<vector<name>> consensus_rankings = check_consensus();
-            distribute_rewards(consensus_rankings);
+            distribute_rewards(check_consensus());
             determine_council();
             cleartables();
         }
@@ -783,11 +782,12 @@ void zeos1fractal::cleartables()
     }
 }
 
-void zeos1fractal::claimtokens(const name& user)
+void zeos1fractal::claimrewards(const name& user)
 {
     require_auth(user);
 
     claim_t claims(_self, user.value);
+    check(claims.begin() != claims.end(), "nothing to claim");
 
     for (auto itr = claims.begin(); itr != claims.end();) 
     {
@@ -800,19 +800,4 @@ void zeos1fractal::claimtokens(const name& user)
 
         itr = claims.erase(itr);
     }
-}
-
-void zeos1fractal::testshuffle()
-{
-    vector<uint64_t> v = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-    rng_t rndnmbr("r4ndomnumb3r"_n, "r4ndomnumb3r"_n.value);
-    checksum256 x = rndnmbr.get().value;
-    uint32_t seed = *reinterpret_cast<uint32_t*>(&x);
-    my_shuffle(v.begin(), v.end(), seed);
-    string s = "";
-    for(auto e : v)
-    {
-        s += to_string(e) + ", ";
-    }
-    check(0, s);
 }
