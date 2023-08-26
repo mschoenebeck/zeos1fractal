@@ -181,12 +181,12 @@ public:
     };
 
     // Tables related to automatic msig end
-    TABLE claim
+    TABLE claimv2
     {
         extended_asset quantity;
         uint64_t primary_key() const { return quantity.quantity.symbol.code().raw(); }
     };
-    typedef eosio::multi_index<"claims"_n, claim> claim_t;
+    typedef eosio::multi_index<"claimv2"_n, claimv2> claimv2_t;
 
 
     zeos1fractal(name self, name code, datastream<const char *> ds);
@@ -202,8 +202,12 @@ public:
     ACTION authenticate(const name& user, const uint64_t& event, const uint64_t& room);
     ACTION testshuffle();
     ACTION populate();
+    ACTION populatetwo();
     ACTION three();
     ACTION claimrewards(const name& user);
+    ACTION clearmembers();
+    ACTION deleteall(); 
+
 
     [[eosio::on_notify("*::transfer")]]
     void assetin(name from, name to, asset quantity, string memo);

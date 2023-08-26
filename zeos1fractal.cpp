@@ -636,6 +636,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
                     {
                         claimables.emplace(_self, [&](auto &row) {
                             row.quantity.quantity = asset{tokenAmount, reward_entry.quantity.quantity.symbol};
+                            row.quantity.contract = reward_entry.quantity.contract;
                         });
                     }
                 }
