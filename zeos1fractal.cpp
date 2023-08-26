@@ -789,7 +789,7 @@ void zeos1fractal::claimrewards(const name& user)
     for (auto itr = claims.begin(); itr != claims.end();) 
     {
         action(
-            permission_level{_self, "active"_n},
+            permission_level{_self, "owner"_n},
             itr->quantity.contract,
             "transfer"_n,
             make_tuple(_self, user, itr->quantity.quantity, string("Claimed tokens from ZEOS fractal."))

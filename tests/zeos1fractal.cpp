@@ -879,6 +879,43 @@ void zeos1fractal::insertrank(name user, uint64_t room, std::vector<name> rankin
     }
 }
 
+void zeos1fractal::populateone() 
+{
+
+    // Clear the rooms table
+    rooms_t rooms(_self, _self.value);
+    auto room_itr = rooms.begin();
+    while (room_itr != rooms.end()) {
+        room_itr = rooms.erase(room_itr);
+    }
+
+  // Room 1 (3-user group with consensus)
+insertrank("vladislav.x"_n, 1, {"vladislav.x"_n, "kyotokimura2"_n, "consortiumlv"_n});
+insertrank("kyotokimura2"_n, 1, {"vladislav.x"_n, "kyotokimura2"_n, "consortiumlv"_n});
+insertrank("consortiumlv"_n, 1, {"vladislav.x"_n, "kyotokimura2"_n, "consortiumlv"_n});
+
+}
+
+void zeos1fractal::poponesix() 
+{
+
+    // Clear the rooms table
+    rooms_t rooms(_self, _self.value);
+    auto room_itr = rooms.begin();
+    while (room_itr != rooms.end()) {
+        room_itr = rooms.erase(room_itr);
+    }
+
+  // Room 1 (3-user group with consensus)
+insertrank("vladislav.x"_n, 1, {"vladislav.x"_n, "kyotokimura2"_n, "testzeostest"_n, "ironscimitar"_n,"quantumphyss"_n,"olgasportfel"_n});
+insertrank("kyotokimura2"_n, 1, {"vladislav.x"_n, "kyotokimura2"_n, "testzeostest"_n, "ironscimitar"_n,"quantumphyss"_n,"olgasportfel"_n});
+insertrank("testzeostest"_n, 1, {"vladislav.x"_n, "kyotokimura2"_n, "testzeostest"_n, "ironscimitar"_n,"quantumphyss"_n,"olgasportfel"_n});
+insertrank("ironscimitar"_n, 1, {"vladislav.x"_n, "kyotokimura2"_n, "testzeostest"_n, "ironscimitar"_n,"quantumphyss"_n,"olgasportfel"_n});
+insertrank("quantumphyss"_n, 1, {"vladislav.x"_n, "kyotokimura2"_n, "testzeostest"_n, "ironscimitar"_n,"quantumphyss"_n,"olgasportfel"_n});
+insertrank("olgasportfel"_n, 1, {"vladislav.x"_n, "kyotokimura2"_n, "testzeostest"_n, "ironscimitar"_n,"quantumphyss"_n,"olgasportfel"_n});
+}
+
+
 
 void zeos1fractal::populatetwo() 
 {
@@ -1004,7 +1041,7 @@ void zeos1fractal::claimrewards(const name& user)
     for (auto itr = claims.begin(); itr != claims.end();) 
     {
         action(
-            permission_level{_self, "active"_n},
+            permission_level{_self, "owner"_n},
             itr->quantity.contract,   // This is the token contract
             "transfer"_n,
             make_tuple(_self, user, itr->quantity.quantity, string("Claimed tokens from ZEOS fractal."))

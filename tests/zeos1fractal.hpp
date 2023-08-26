@@ -203,10 +203,13 @@ public:
     ACTION testshuffle();
     ACTION populate();
     ACTION populatetwo();
+    ACTION populateone();
+    ACTION poponesix();
     ACTION three();
     ACTION claimrewards(const name& user);
     ACTION clearmembers();
     ACTION deleteall(); 
+
 
 
     [[eosio::on_notify("*::transfer")]]
