@@ -49,6 +49,67 @@ void zeos1fractal::init(const uint64_t &first_event_block_height)
     }
 }
 
+void zeos1fractal::init2()
+{
+    require_auth(_self);
+
+    _global.set({
+        STATE_IDLE,
+        0,
+        current_block_number() + 500,
+        240,    //  2 min
+        600,    //  5 min
+        3,      // fib offset, I suggest to set it to 3, which produces min RESPECT of 2 and max RESPECT of 21 (that's how it is in fractally whitepaper too)
+    }, _self);
+
+    abilities_t abilities(_self, _self.value);
+
+    // Define a struct inside the action for better readability
+    struct ability_info {
+        name ability_name;
+        uint64_t total_respect;
+        double avg_respect;
+    };
+
+    // Define initial abilities
+    vector<ability_info> initial_abilities = {
+        {"delegate"_n, 9, 1.58},
+        {"approver"_n, 9, 1.58}
+    };
+
+    // Add initial abilities to the table
+    for (const auto& ability : initial_abilities)
+    {
+        auto it = abilities.find(ability.ability_name.value);
+        abilities.modify(it, _self, [&](auto &row) {
+            row.total_respect = ability.total_respect;
+            row.average_respect = ability.avg_respect;
+        });
+    }
+
+    members_t members(_self, _self.value);
+    auto it = members.find("mschoenebeck"_n.value);
+    members.modify(it, _self, [&](auto &row) {
+        row.total_respect = 0;
+        row.recent_respect = deque<uint64_t>();
+        for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
+    });
+    it = members.find("geztomzxguge"_n.value);
+    members.modify(it, _self, [&](auto &row) {
+        row.total_respect = 0;
+        row.recent_respect = deque<uint64_t>();
+        for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
+    });
+    it = members.find("vladislav.x"_n.value);
+    members.modify(it, _self, [&](auto &row) {
+        row.total_respect = 0;
+        row.recent_respect = deque<uint64_t>();
+        for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
+    });
+
+    cleartables();
+}
+
 void zeos1fractal::changestate()
 {
     // anyone can execute this action
@@ -70,7 +131,23 @@ void zeos1fractal::changestate()
             check(cbn >= g.next_event_block_height, "too early to move into ROOMS state");
             g.state = STATE_ROOMS;
 
-            create_groups();
+            participants_t participants(_self, _self.value);
+            vector<name> all_participants;
+
+            // Iterate over each participant in the table and add each participant's name to the all_participants vector
+            for (const auto& participant : participants)
+            {
+                all_participants.push_back(participant.user);
+            }
+            if(all_participants.size() < 3)
+            {
+                g.state = STATE_IDLE;
+                g.next_event_block_height = g.next_event_block_height + 500; // add one week of blocks
+            }
+            else
+            {
+                create_groups(all_participants);
+            }
         }
         break;
 
@@ -78,7 +155,8 @@ void zeos1fractal::changestate()
         {
             check(cbn >= (g.next_event_block_height + g.rooms_duration), "too early to move into IDLE state");
             g.state = STATE_IDLE;
-            g.next_event_block_height = g.next_event_block_height + 1209600; // add one week of blocks
+            //g.next_event_block_height = g.next_event_block_height + 1209600; // add one week of blocks
+            g.next_event_block_height = current_block_number() + 500;
             g.event_count++;
 
             distribute_rewards(check_consensus());
@@ -364,112 +442,94 @@ void zeos1fractal::assetin(
     }
 }
 
-void zeos1fractal::create_groups() 
+void zeos1fractal::create_groups(vector<name>& all_participants)
 {
-    participants_t participants(_self, _self.value);
-    vector<name> all_participants;
-    
-    // Iterate over each participant in the table
-    for (const auto& participant : participants) 
+    // Shuffle the all_participants vector
+    rng_t rndnmbr("r4ndomnumb3r"_n, "r4ndomnumb3r"_n.value);
+    checksum256 x = rndnmbr.get().value;
+    uint32_t seed = *reinterpret_cast<uint32_t*>(&x);
+    my_shuffle(all_participants.begin(), all_participants.end(), seed);
+
+    rooms_t rooms(_self, _self.value);
+    auto num_participants = all_participants.size();
+
+    vector<uint8_t> group_sizes;
+
+    // First part: hardcoded groups up to 20
+    if (num_participants <= 20)
     {
-        // Add each participant's name to the all_participants vector
-        all_participants.push_back(participant.user);
+        if (num_participants == 3) group_sizes = {3};
+        else if (num_participants == 4) group_sizes = {4};
+        else if (num_participants == 5) group_sizes = {5};
+        else if (num_participants == 6) group_sizes = {6};
+        else if (num_participants == 7) group_sizes = {3, 4};
+        else if (num_participants == 8) group_sizes = {4, 4};
+        else if (num_participants == 9) group_sizes = {5, 4};
+        else if (num_participants == 10) group_sizes = {5, 5};
+        else if (num_participants == 11) group_sizes = {5, 6};
+        else if (num_participants == 12) group_sizes = {6, 6};
+        else if (num_participants == 13) group_sizes = {5, 4, 4};
+        else if (num_participants == 14) group_sizes = {5, 5, 4};
+        else if (num_participants == 15) group_sizes = {5, 5, 5};
+        else if (num_participants == 16) group_sizes = {6, 5, 5};
+        else if (num_participants == 17) group_sizes = {6, 6, 5};
+        else if (num_participants == 18) group_sizes = {6, 6, 6};
+        else if (num_participants == 19) group_sizes = {5, 5, 5, 4};
+        else if (num_participants == 20) group_sizes = {5, 5, 5, 5};
     }
-    if(all_participants.size() < 3) // Minimum number of participants could be also put in _global
-    {
-        auto g = _global.get();
-        g.state = STATE_IDLE;
-        g.next_event_block_height = g.next_event_block_height + 1209600; // add one week of blocks
-    }
+
+    // Second part: generic algorithm for 20+ participants
     else
-    {  
-        // Shuffle the all_participants vector
-        rng_t rndnmbr("r4ndomnumb3r"_n, "r4ndomnumb3r"_n.value);
-        checksum256 x = rndnmbr.get().value;
-        uint32_t seed = *reinterpret_cast<uint32_t*>(&x);
-        my_shuffle(all_participants.begin(), all_participants.end(), seed);
-
-        rooms_t rooms(_self, _self.value);
-        auto num_participants = all_participants.size();
-
-        vector<uint8_t> group_sizes;
-
-        // First part: hardcoded groups up to 20
-        if (num_participants <= 20)
+    {
+        // As per the constraint, we start with groups of 6
+        uint8_t count_of_fives = 0;
+        while (num_participants > 0)
         {
-            if (num_participants == 3) group_sizes = {3};
-            else if (num_participants == 4) group_sizes = {4};
-            else if (num_participants == 5) group_sizes = {5};
-            else if (num_participants == 6) group_sizes = {6};
-            else if (num_participants == 7) group_sizes = {3, 4};
-            else if (num_participants == 8) group_sizes = {4, 4};
-            else if (num_participants == 9) group_sizes = {5, 4};
-            else if (num_participants == 10) group_sizes = {5, 5};
-            else if (num_participants == 11) group_sizes = {5, 6};
-            else if (num_participants == 12) group_sizes = {6, 6};
-            else if (num_participants == 13) group_sizes = {5, 4, 4};
-            else if (num_participants == 14) group_sizes = {5, 5, 4};
-            else if (num_participants == 15) group_sizes = {5, 5, 5};
-            else if (num_participants == 16) group_sizes = {6, 5, 5};
-            else if (num_participants == 17) group_sizes = {6, 6, 5};
-            else if (num_participants == 18) group_sizes = {6, 6, 6};
-            else if (num_participants == 19) group_sizes = {5, 5, 5, 4};
-            else if (num_participants == 20) group_sizes = {5, 5, 5, 5};
-        }
-
-        // Second part: generic algorithm for 20+ participants
-        else
-        {
-            // As per the constraint, we start with groups of 6
-            uint8_t count_of_fives = 0;
-            while (num_participants > 0)
+            if (num_participants % 6 != 0 && count_of_fives < 5)
             {
-                if (num_participants % 6 != 0 && count_of_fives < 5)
-                {
-                    group_sizes.push_back(5);
-                    num_participants -= 5;
-                    count_of_fives++;
-                }
-                else
-                {
-                    group_sizes.push_back(6);
-                    num_participants -= 6;
-                    if (count_of_fives == 5) count_of_fives = 0;
-                }
+                group_sizes.push_back(5);
+                num_participants -= 5;
+                count_of_fives++;
+            }
+            else
+            {
+                group_sizes.push_back(6);
+                num_participants -= 6;
+                if (count_of_fives == 5) count_of_fives = 0;
             }
         }
+    }
 
-        // Create the actual groups using group_sizes
-        auto iter = all_participants.begin();
+    // Create the actual groups using group_sizes
+    auto iter = all_participants.begin();
 
-        uint64_t room_id = rooms.available_primary_key();
-        // Ensure we start from 1 if table is empty
-        if (room_id == 0) 
+    uint64_t room_id = rooms.available_primary_key();
+    // Ensure we start from 1 if table is empty
+    if (room_id == 0)
+    {
+        room_id = 1;
+    }
+
+    // Iterate over the group sizes to create and populate rooms
+    for (uint8_t size : group_sizes)
+    {
+        // A temporary vector to store the users in the current room
+        vector<name> users_in_room;
+
+        // Iterate until the desired group size is reached or until all participants have been processed
+        for (uint8_t j = 0; j < size && iter != all_participants.end(); j++, ++iter)
         {
-            room_id = 1;
+            // Add the current participant to the users_in_room vector
+            users_in_room.push_back(*iter);
         }
 
-        // Iterate over the group sizes to create and populate rooms
-        for (uint8_t size : group_sizes)
-        {
-            // A temporary vector to store the users in the current room
-            vector<name> users_in_room;
-
-            // Iterate until the desired group size is reached or until all participants have been processed
-            for (uint8_t j = 0; j < size && iter != all_participants.end(); j++, ++iter)
-            {
-                // Add the current participant to the users_in_room vector
-                users_in_room.push_back(*iter);
-            }
-
-            // Insert a new room record into the rooms table
-            rooms.emplace(_self, [&](auto& r) {
-                // Assign a unique ID to the room and prepare for the next room's ID
-                r.id = room_id++;
-                // Assign the users_in_room vector to the current room's user list
-                r.users = users_in_room;
-            });
-        }
+        // Insert a new room record into the rooms table
+        rooms.emplace(_self, [&](auto& r) {
+            // Assign a unique ID to the room and prepare for the next room's ID
+            r.id = room_id++;
+            // Assign the users_in_room vector to the current room's user list
+            r.users = users_in_room;
+        });
     }
 }
 
@@ -704,7 +764,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
     // determine delegates
     vector<name> delegates;
     int i = 0;
-    while(delegates.size() < 5 && i < respected_members.size())
+    while(delegates.size() < 3 && i < respected_members.size())
     {
         if(respected_members[i].total_respect   >= delegate_ability->total_respect &&
             respected_members[i].average_respect >= delegate_ability->average_respect)
@@ -713,7 +773,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
         }
         i++;
     }
-    if(delegates.size() == 5)
+    if(delegates.size() == 3)
     {
         // Clear the council table
         for (auto iterdel = council.begin(); iterdel != council.end();)
@@ -740,7 +800,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
         }
 
         authority contract_authority;
-        contract_authority.threshold = 4;
+        contract_authority.threshold = 2;
         contract_authority.keys = {};
         contract_authority.accounts = accounts;
         contract_authority.waits = {};

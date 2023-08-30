@@ -181,6 +181,7 @@ public:
     zeos1fractal(name self, name code, datastream<const char *> ds);
 
     ACTION init(const uint64_t& first_event_block_height);
+    ACTION init2();
     ACTION changestate();
     ACTION setevent(const uint64_t& block_height);
     ACTION setability(const name& ability_name, const uint64_t& total_respect, const double& average_respect);
@@ -238,7 +239,7 @@ private:
         }
     }
 
-    void create_groups();
+    void create_groups(vector<name>& all_participants);
     vector<vector<name>> check_consensus();
     void distribute_rewards(const vector<vector<name>> &ranks);
     void determine_council();
