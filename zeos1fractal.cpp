@@ -312,7 +312,7 @@ void zeos1fractal::participate(const name &user)
 
 void zeos1fractal::submitranks(
     const name &user,
-    const uint64_t &group_id,
+    const uint64_t &room,
     const vector<name> &rankings
 )
 {
@@ -321,7 +321,7 @@ void zeos1fractal::submitranks(
     // Check whether user is a part of a group he is submitting consensus for.
     rooms_t rooms(_self, _self.value);
 
-    const auto &room_iter = rooms.get(group_id, "No group with such ID.");
+    const auto &room_iter = rooms.get(room, "No group with such ID.");
 
     bool exists = false;
     for (const name& room_user : room_iter.users) 
@@ -366,7 +366,7 @@ void zeos1fractal::submitranks(
     {
         rankings_table.emplace(user, [&](auto &row) {
             row.user = user;
-            row.room = group_id;
+            row.room = room;
             row.rankings = rankings;
         });
     }
@@ -442,16 +442,16 @@ void zeos1fractal::assetin(
     }
 }
 
-void zeos1fractal::create_groups(vector<name>& all_participants)
+void zeos1fractal::create_groups(vector<name>& participants)
 {
-    // Shuffle the all_participants vector
+    // Shuffle the participants vector
     rng_t rndnmbr("r4ndomnumb3r"_n, "r4ndomnumb3r"_n.value);
     checksum256 x = rndnmbr.get().value;
     uint32_t seed = *reinterpret_cast<uint32_t*>(&x);
-    my_shuffle(all_participants.begin(), all_participants.end(), seed);
+    my_shuffle(participants.begin(), participants.end(), seed);
 
     rooms_t rooms(_self, _self.value);
-    auto num_participants = all_participants.size();
+    auto num_participants = participants.size();
 
     vector<uint8_t> group_sizes;
 
@@ -501,7 +501,7 @@ void zeos1fractal::create_groups(vector<name>& all_participants)
     }
 
     // Create the actual groups using group_sizes
-    auto iter = all_participants.begin();
+    auto iter = participants.begin();
 
     uint64_t room_id = rooms.available_primary_key();
     // Ensure we start from 1 if table is empty
@@ -517,7 +517,7 @@ void zeos1fractal::create_groups(vector<name>& all_participants)
         vector<name> users_in_room;
 
         // Iterate until the desired group size is reached or until all participants have been processed
-        for (uint8_t j = 0; j < size && iter != all_participants.end(); j++, ++iter)
+        for (uint8_t j = 0; j < size && iter != participants.end(); j++, ++iter)
         {
             // Add the current participant to the users_in_room vector
             users_in_room.push_back(*iter);
