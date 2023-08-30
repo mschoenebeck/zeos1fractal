@@ -143,6 +143,7 @@ void zeos1fractal::changestate()
             {
                 g.state = STATE_IDLE;
                 g.next_event_block_height = g.next_event_block_height + 500; // add one week of blocks
+                cleartables();
             }
             else
             {
@@ -617,7 +618,8 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
     rewards_t rewards(get_self(), get_self().value);
     members_t members(get_self(), get_self().value);
     auto g = _global.get();
-    set<name> attendees;
+    map<name, int64_t> respect_receivers;
+    int64_t total_respect_distributed = 0;
 
     // 1. Distribute respect to each member based on their rank.
     //    Respect is determined by the Fibonacci series and is independent of available tokens.
@@ -630,7 +632,8 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
         for (const auto &acc : rank)
         {
             // Calculate respect based on the Fibonacci series.
-            auto respect_amount = static_cast<int64_t>(fib(rankIndex + g.fib_offset));
+            int64_t respect_amount = static_cast<int64_t>(fib(rankIndex + g.fib_offset));
+            total_respect_distributed += respect_amount;
 
             auto mem_itr = members.find(acc.value);
 
@@ -639,81 +642,111 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
                 row.recent_respect.push_front(respect_amount);
                 row.recent_respect.pop_back();
             });
-            attendees.insert(mem_itr->user);
+            respect_receivers.insert({mem_itr->user, respect_amount});
         
             ++rankIndex;  // Move to next rank.
         }
     }
 
     // 2. Distribute token rewards based on available tokens and user rank.
-    for (const auto& reward_entry : rewards)
+    for (const auto& reward : rewards)
     {
-        auto availableReward = reward_entry.quantity.quantity.amount;
-
         // Skip if no tokens are available for distribution.
-        if (availableReward <= 0)
+        if (reward.quantity.quantity.amount <= 0)
         {
             continue;
         }
 
-        // Calculate multiplier using polynomial coefficients and total available reward.
-        auto coeffSum = accumulate(begin(polyCoeffs), end(polyCoeffs), 0.0);
-        auto multiplier = static_cast<double>(availableReward) / (ranks.size() * coeffSum);
-
-        // Determine token rewards for each rank.
-        vector<int64_t> tokenRewards;
-        transform(begin(polyCoeffs), end(polyCoeffs), back_inserter(tokenRewards), [&](const auto &c) {
-            return static_cast<int64_t>(multiplier * c);
-        });
-
-        // Skip if any rank gets 0 tokens.
-        if (any_of(tokenRewards.begin(), tokenRewards.end(), [](int64_t val) { return val == 0; }))
+        for(auto it = respect_receivers.begin(); it != respect_receivers.end(); ++it)
         {
-            continue;
-        }
+            // the amount of tokens each participant receives is proportional to the amount of respect received (in relation to the overall amount of respect distributed in this event)
+            int64_t tokenAmount = static_cast<int64_t>(floor(static_cast<double>(it->second) / static_cast<double>(total_respect_distributed) * static_cast<double>(reward.quantity.quantity.amount)));
 
-        // Update or add claimable tokens for each member based on their rank.
-        for (const auto &rank : ranks)
-        {
-            size_t group_size = rank.size();
-            auto rankIndex = 6 - group_size;
-            for (const auto &acc : rank)
+            if (tokenAmount > 0)  // Only proceed if the member should get tokens.
             {
-                auto tokenAmount = tokenRewards[rankIndex];
-
-                if (tokenAmount > 0)  // Only proceed if the member should get tokens.
+                claim_t claimables(get_self(), it->first.value);
+                auto claim_itr = claimables.find(reward.quantity.quantity.symbol.code().raw());
+                if (claim_itr != claimables.end())  // If member has claimables, update them.
                 {
-                    claim_t claimables(get_self(), acc.value);
-                    auto claim_itr = claimables.find(reward_entry.quantity.quantity.symbol.code().raw());
-
-                    if (claim_itr != claimables.end())  // If member has claimables, update them.
-                    {
-                        claimables.modify(claim_itr, _self, [&](auto &row) {
-                            row.quantity.quantity.amount += tokenAmount;
-                        });
-                    }
-                    else  // Otherwise, add new claimable.
-                    {
-                        claimables.emplace(_self, [&](auto &row) {
-                            row.quantity.quantity = asset{tokenAmount, reward_entry.quantity.quantity.symbol};
-                            row.quantity.contract = reward_entry.quantity.contract;
-                        });
-                    }
+                    claimables.modify(claim_itr, _self, [&](auto &row) {
+                        row.quantity.quantity.amount += tokenAmount;
+                    });
                 }
-
-                ++rankIndex;  // Move to next rank.
+                else  // Otherwise, add new claimable.
+                {
+                    claimables.emplace(_self, [&](auto &row) {
+                        row.quantity.quantity = asset{tokenAmount, reward.quantity.quantity.symbol};
+                        row.quantity.contract = reward.quantity.contract;
+                    });
+                }
+                // Deduct distributed amount from total available rewards.
+                rewards.modify(reward, _self, [&](auto &row) {
+                    row.quantity.quantity.amount -= tokenAmount;
+                    // this check should never fail
+                    check(row.quantity.quantity.amount >= 0, "cannot distribute more rewards than avaliable");
+                });
             }
         }
 
+        // Calculate multiplier using polynomial coefficients and total available reward.
+        //auto coeffSum = accumulate(begin(polyCoeffs), end(polyCoeffs), 0.0);
+        //auto multiplier = static_cast<double>(availableReward) / (ranks.size() * coeffSum);
+
+        // Determine token rewards for each rank.
+        //vector<int64_t> tokenRewards;
+        //transform(begin(polyCoeffs), end(polyCoeffs), back_inserter(tokenRewards), [&](const auto &c) {
+        //    return static_cast<int64_t>(multiplier * c);
+        //});
+
+        // Skip if any rank gets 0 tokens.
+        //if (any_of(tokenRewards.begin(), tokenRewards.end(), [](int64_t val) { return val == 0; }))
+        //{
+        //    continue;
+        //}
+
+        // Update or add claimable tokens for each member based on their rank.
+        //for (const auto &rank : ranks)
+        //{
+        //    size_t group_size = rank.size();
+        //    auto rankIndex = 6 - group_size;
+        //    for (const auto &acc : rank)
+        //    {
+        //        auto tokenAmount = tokenRewards[rankIndex];
+//
+        //        if (tokenAmount > 0)  // Only proceed if the member should get tokens.
+        //        {
+        //            claim_t claimables(get_self(), acc.value);
+        //            auto claim_itr = claimables.find(reward_entry.quantity.quantity.symbol.code().raw());
+//
+        //            if (claim_itr != claimables.end())  // If member has claimables, update them.
+        //            {
+        //                claimables.modify(claim_itr, _self, [&](auto &row) {
+        //                    row.quantity.quantity.amount += tokenAmount;
+        //                });
+        //            }
+        //            else  // Otherwise, add new claimable.
+        //            {
+        //                claimables.emplace(_self, [&](auto &row) {
+        //                    row.quantity.quantity = asset{tokenAmount, reward_entry.quantity.quantity.symbol};
+        //                    row.quantity.contract = reward_entry.quantity.contract;
+        //                });
+        //            }
+        //        }
+//
+        //        ++rankIndex;  // Move to next rank.
+        //    }
+        //}
+
         // Deduct distributed amount from total available rewards.
-        rewards.modify(reward_entry, _self, [&](auto &row) {
-            row.quantity.quantity.amount -= availableReward;
-        });
+        //rewards.modify(reward_entry, _self, [&](auto &row) {
+        //    row.quantity.quantity.amount -= availableReward;
+        //});
     }
 
     for (auto memb_itr = members.begin(); memb_itr != members.end(); ++memb_itr)
     {
-        if(attendees.count(memb_itr->user) == 0)
+        // if this member didn't participate in this event it gets zero respect
+        if(respect_receivers.count(memb_itr->user) == 0)
         {
             // Modify the member's row
             members.modify(memb_itr, get_self(), [&](auto &row) {
