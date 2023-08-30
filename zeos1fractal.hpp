@@ -11,6 +11,12 @@
 using namespace eosio;
 using namespace std;
 
+#define COUNCIL_SIZE 3
+constexpr std::array<uint32_t, 7> CONSENSUS {
+    0, 1, 2, 2, 3, 3, 4
+};
+
+
 // 6 is maxgroupsize
 constexpr std::array<double, 6> polyCoeffs {
     1, 1.618, 2.617924, 4.235801032, 6.85352607, 11.08900518

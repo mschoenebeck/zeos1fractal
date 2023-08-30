@@ -132,14 +132,14 @@ void zeos1fractal::changestate()
             g.state = STATE_ROOMS;
 
             participants_t participants(_self, _self.value);
-            vector<name> all_participants;
+            vector<name> event_participants;
 
-            // Iterate over each participant in the table and add each participant's name to the all_participants vector
+            // Iterate over each participant in the table and add each participant's name to the event_participants vector
             for (const auto& participant : participants)
             {
-                all_participants.push_back(participant.user);
+                event_participants.push_back(participant.user);
             }
-            if(all_participants.size() < 3)
+            if(event_participants.size() < 3)
             {
                 g.state = STATE_IDLE;
                 g.next_event_block_height = g.next_event_block_height + 500; // add one week of blocks
@@ -147,7 +147,7 @@ void zeos1fractal::changestate()
             }
             else
             {
-                create_groups(all_participants);
+                create_groups(event_participants);
             }
         }
         break;
@@ -321,9 +321,7 @@ void zeos1fractal::submitranks(
 
     // Check whether user is a part of a group he is submitting consensus for.
     rooms_t rooms(_self, _self.value);
-
     const auto &room_iter = rooms.get(room, "No group with such ID.");
-
     bool exists = false;
     for (const name& room_user : room_iter.users) 
     {
@@ -335,14 +333,9 @@ void zeos1fractal::submitranks(
     }
 
     check(exists, "Your account name not found in group");
-
-    size_t group_size = rankings.size();
-
-    // Check whether size of ranking equals to the size of users of that room
-    check(group_size == room_iter.users.size(), "Rankings size must match the number of users in the group.");
-    // Indeed checks below seem to be unneccesary but let's still keep?
-    check(group_size >= 3, "too small group");
-    check(group_size <= 6, "too big group");
+    check(rankings.size() == room_iter.users.size(), "Rankings size must match the number of users in the group.");
+    check(rankings.size() >= 3, "too small group");
+    check(rankings.size() <= 6, "too big group");
 
     // Check if all the accounts in the rankings are part of the room
     for (const name& ranked_user : rankings)
@@ -567,7 +560,6 @@ vector<vector<name>> zeos1fractal::check_consensus()
         // Get how many submission there should be per room
         rooms_t rooms(_self, _self.value);
         const auto &room_iter = rooms.get(current_group, "No group with such ID.");
-        size_t maximum_submissions = room_iter.users.size();
 
         // Check consensus for this group
         for (size_t i = 0; i < room_submissions[0].size(); ++i)
@@ -590,7 +582,7 @@ vector<vector<name>> zeos1fractal::check_consensus()
             }
 
             // Check consensus for the current rank
-            if (most_voted_count * 3 >= maximum_submissions * 2)
+            if (most_voted_count * 3 >= room_iter.users.size() * 2)
             {
                 consensus_ranking.push_back(most_voted_name);
             }
@@ -626,8 +618,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
     for (const auto &rank : ranks)
     {
         // Determine the initial rank index based on group size.
-        size_t group_size = rank.size();
-        auto rankIndex = 6 - group_size;
+        auto rankIndex = 6 - rank.size();
 
         for (const auto &acc : rank)
         {
@@ -657,90 +648,41 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
             continue;
         }
 
+        int64_t reward_amount_distributed = 0;
+
         for(auto it = respect_receivers.begin(); it != respect_receivers.end(); ++it)
         {
             // the amount of tokens each participant receives is proportional to the amount of respect received (in relation to the overall amount of respect distributed in this event)
-            int64_t tokenAmount = static_cast<int64_t>(floor(static_cast<double>(it->second) / static_cast<double>(total_respect_distributed) * static_cast<double>(reward.quantity.quantity.amount)));
+            int64_t user_amount = static_cast<int64_t>(floor(static_cast<double>(it->second) / static_cast<double>(total_respect_distributed) * static_cast<double>(reward.quantity.quantity.amount)));
 
-            if (tokenAmount > 0)  // Only proceed if the member should get tokens.
+            if (user_amount > 0)  // Only proceed if the member should get tokens.
             {
                 claim_t claimables(get_self(), it->first.value);
                 auto claim_itr = claimables.find(reward.quantity.quantity.symbol.code().raw());
                 if (claim_itr != claimables.end())  // If member has claimables, update them.
                 {
                     claimables.modify(claim_itr, _self, [&](auto &row) {
-                        row.quantity.quantity.amount += tokenAmount;
+                        row.quantity.quantity.amount += user_amount;
                     });
                 }
                 else  // Otherwise, add new claimable.
                 {
                     claimables.emplace(_self, [&](auto &row) {
-                        row.quantity.quantity = asset{tokenAmount, reward.quantity.quantity.symbol};
+                        row.quantity.quantity = asset{user_amount, reward.quantity.quantity.symbol};
                         row.quantity.contract = reward.quantity.contract;
                     });
                 }
-                // Deduct distributed amount from total available rewards.
-                rewards.modify(reward, _self, [&](auto &row) {
-                    row.quantity.quantity.amount -= tokenAmount;
-                    // this check should never fail
-                    check(row.quantity.quantity.amount >= 0, "cannot distribute more rewards than avaliable");
-                });
+
+                reward_amount_distributed += user_amount;
             }
         }
 
-        // Calculate multiplier using polynomial coefficients and total available reward.
-        //auto coeffSum = accumulate(begin(polyCoeffs), end(polyCoeffs), 0.0);
-        //auto multiplier = static_cast<double>(availableReward) / (ranks.size() * coeffSum);
-
-        // Determine token rewards for each rank.
-        //vector<int64_t> tokenRewards;
-        //transform(begin(polyCoeffs), end(polyCoeffs), back_inserter(tokenRewards), [&](const auto &c) {
-        //    return static_cast<int64_t>(multiplier * c);
-        //});
-
-        // Skip if any rank gets 0 tokens.
-        //if (any_of(tokenRewards.begin(), tokenRewards.end(), [](int64_t val) { return val == 0; }))
-        //{
-        //    continue;
-        //}
-
-        // Update or add claimable tokens for each member based on their rank.
-        //for (const auto &rank : ranks)
-        //{
-        //    size_t group_size = rank.size();
-        //    auto rankIndex = 6 - group_size;
-        //    for (const auto &acc : rank)
-        //    {
-        //        auto tokenAmount = tokenRewards[rankIndex];
-//
-        //        if (tokenAmount > 0)  // Only proceed if the member should get tokens.
-        //        {
-        //            claim_t claimables(get_self(), acc.value);
-        //            auto claim_itr = claimables.find(reward_entry.quantity.quantity.symbol.code().raw());
-//
-        //            if (claim_itr != claimables.end())  // If member has claimables, update them.
-        //            {
-        //                claimables.modify(claim_itr, _self, [&](auto &row) {
-        //                    row.quantity.quantity.amount += tokenAmount;
-        //                });
-        //            }
-        //            else  // Otherwise, add new claimable.
-        //            {
-        //                claimables.emplace(_self, [&](auto &row) {
-        //                    row.quantity.quantity = asset{tokenAmount, reward_entry.quantity.quantity.symbol};
-        //                    row.quantity.contract = reward_entry.quantity.contract;
-        //                });
-        //            }
-        //        }
-//
-        //        ++rankIndex;  // Move to next rank.
-        //    }
-        //}
-
         // Deduct distributed amount from total available rewards.
-        //rewards.modify(reward_entry, _self, [&](auto &row) {
-        //    row.quantity.quantity.amount -= availableReward;
-        //});
+        rewards.modify(reward, _self, [&](auto &row) {
+            row.quantity.quantity.amount -= reward_amount_distributed;
+            // this check should never fail
+            check(row.quantity.quantity.amount >= 0, "cannot distribute more rewards than avaliable");
+        });
     }
 
     for (auto memb_itr = members.begin(); memb_itr != members.end(); ++memb_itr)
@@ -797,7 +739,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
     // determine delegates
     vector<name> delegates;
     int i = 0;
-    while(delegates.size() < 3 && i < respected_members.size())
+    while(delegates.size() < COUNCIL_SIZE && i < respected_members.size())
     {
         if(respected_members[i].total_respect   >= delegate_ability->total_respect &&
             respected_members[i].average_respect >= delegate_ability->average_respect)
@@ -806,7 +748,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
         }
         i++;
     }
-    if(delegates.size() == 3)
+    if(delegates.size() == COUNCIL_SIZE)
     {
         // Clear the council table
         for (auto iterdel = council.begin(); iterdel != council.end();)
@@ -833,7 +775,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
         }
 
         authority contract_authority;
-        contract_authority.threshold = 2;
+        contract_authority.threshold = CONSENSUS[COUNCIL_SIZE];
         contract_authority.keys = {};
         contract_authority.accounts = accounts;
         contract_authority.waits = {};
