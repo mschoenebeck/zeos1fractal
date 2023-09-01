@@ -48,9 +48,27 @@ void zeos1fractal::init(const uint64_t &first_event_block_height)
             row.average_respect = ability.avg_respect;
         });
     }
-   
-}
 
+}
+void zeos1fractal::initstats()
+{
+    asset initial_supply = asset(0, symbol("REZPECT", 4)); // 0.0000 REZPECT
+    asset max_supply = asset(10000000000, symbol("REZPECT", 4)); // 10 000 000.0000 REZPECT
+    name issuer = "zeos1fractal"_n;
+
+    stats statstable(_self, initial_supply.symbol.code().raw());
+
+    // Check if it already exists
+    auto stat_itr = statstable.find(initial_supply.symbol.code().raw());
+    check(stat_itr == statstable.end(), "Token with symbol already initialized in stats table");
+
+    // Create new row
+    statstable.emplace(_self, [&](auto &row) {
+        row.supply = initial_supply;
+        row.max_supply = max_supply;
+        row.issuer = issuer;
+    });
+}
 void zeos1fractal::changestate()
 {
     // anyone can execute this action
@@ -597,6 +615,31 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
                 row.recent_respect.pop_back();
             });
             attendees.insert(mem_itr->user);
+
+
+            struct asset respect_token = { int64_t(respect_amount * 10000), symbol("REZPECT", 4) };
+
+            accounts to_acnts(_self, mem_itr->user.value);
+            auto to = to_acnts.find(respect_token.symbol.code().raw());
+            if (to == to_acnts.end()) 
+            {
+                to_acnts.emplace(_self, [&](auto& a) { a.balance = respect_token; });
+            }
+            else 
+            {
+                to_acnts.modify(to, _self, [&](auto& a) { a.balance += respect_token; });
+            }
+
+            auto sym = respect_token.symbol;
+
+            stats statstable(_self, sym.code().raw());
+            auto existing = statstable.find(sym.code().raw());
+            check(existing != statstable.end(), "token with symbol does not exist, create token before issue");
+            const auto& st = *existing;
+
+            check(respect_token.amount <= st.max_supply.amount - st.supply.amount, "quantity exceeds available supply");
+
+            statstable.modify(st, _self, [&](auto& s) { s.supply += respect_token; });
         
             ++rankIndex;  // Move to next rank.
         }
@@ -1074,3 +1117,67 @@ void zeos1fractal::claimrewards(const name& user)
                 rank_itr = rankings_table.erase(rank_itr);
               }
     }
+
+void zeos1fractal::createx(const name& issuer, const asset& maximum_supply)
+{
+    require_auth(_self);
+
+    auto sym = maximum_supply.symbol;
+    check(sym.is_valid(), "invalid symbol name");
+    check(maximum_supply.is_valid(), "invalid supply");
+    check(maximum_supply.amount > 0, "max-supply must be positive");
+
+    stats statstable(_self, sym.code().raw());
+    auto existing = statstable.find(sym.code().raw());
+    check(existing == statstable.end(), "token with symbol already exists");
+
+    statstable.emplace(_self, [&](auto& s) {
+        s.supply.symbol = maximum_supply.symbol;
+        s.max_supply = maximum_supply;
+        s.issuer = issuer;
+    });
+}
+
+void zeos1fractal::issuetoken ( name owner, asset touser, asset tosupply )
+    
+{
+            require_auth (_self);
+            require_recipient( owner );
+
+            
+        auto sym = tosupply.symbol;
+            check( sym.is_valid(), "Invalid symbol name" );
+
+            auto sym_code_raw = sym.code().raw();
+
+            stats statstable( _self, sym_code_raw );
+            auto existing = statstable.find( sym_code_raw );
+            check( existing != statstable.end(), "Token with that symbol name does not exist - Please create the token before issuing" );
+
+            const auto& st = * existing;
+            
+        check( tosupply.is_valid(), "Invalid quantity value" );
+            check( st.supply.symbol == tosupply.symbol, "Symbol precision mismatch" );
+            check( st.max_supply.amount - st.supply.amount >= tosupply.amount, "Quantity value cannot exceed the available supply" );
+
+            statstable.modify( st, _self, [&]( auto& s ) {
+            s.supply += tosupply;
+         });
+            
+        
+       addd_balance( owner, touser, _self);
+        
+}
+
+
+void zeos1fractal::addd_balance(name owner, asset value, name ram_payer)
+{
+    accounts to_acnts(_self, owner.value);
+    auto to = to_acnts.find(value.symbol.code().raw());
+    if (to == to_acnts.end()) {
+        to_acnts.emplace(ram_payer, [&](auto& a) { a.balance = value; });
+    }
+    else {
+        to_acnts.modify(to, same_payer, [&](auto& a) { a.balance += value; });
+    }
+}

@@ -188,10 +188,29 @@ public:
     };
     typedef eosio::multi_index<"claimv2"_n, claimv2> claimv2_t;
 
+    TABLE account
+    {
+        asset balance;
+
+        uint64_t primary_key() const { return balance.symbol.code().raw(); }
+    };
+    typedef eosio::multi_index<name("accounts"), account> accounts;
+
+        TABLE currency_stats
+    {
+        asset supply;
+        asset max_supply;
+        name issuer;
+
+        uint64_t primary_key() const { return supply.symbol.code().raw(); }
+    };
+    typedef eosio::multi_index<"stat"_n, currency_stats> stats;
+
 
     zeos1fractal(name self, name code, datastream<const char *> ds);
 
     ACTION init(const uint64_t& first_event_block_height);
+    ACTION initstats();
     ACTION changestate();
     ACTION setevent(const uint64_t& block_height);
     ACTION setability(const name& ability_name, const uint64_t& total_respect, const double& average_respect);
@@ -209,6 +228,10 @@ public:
     ACTION claimrewards(const name& user);
     ACTION clearmembers();
     ACTION deleteall(); 
+    ACTION createx(const name& issuer, const asset& maximum_supply);
+    ACTION issuetoken( name owner, asset touser, asset tosupply );
+    
+
 
 
 
@@ -265,5 +288,7 @@ private:
     void determine_council();
     void insertrank(name user, uint64_t room, std::vector<name> rankings);
     void cleartables();
+    void addd_balance(name owner, asset value, name ram_payer);
+
 
 };

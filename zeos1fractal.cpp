@@ -34,8 +34,8 @@ void zeos1fractal::init(const uint64_t &first_event_block_height)
 
     // Define initial abilities
     vector<ability_info> initial_abilities = {
-        {"delegate"_n, 111, 9.25},
-        {"approver"_n, 56, 4.66}
+        {"delegate"_n, 0, 0},
+        {"approver"_n, 0, 0}
     };
 
     // Add initial abilities to the table
@@ -47,6 +47,21 @@ void zeos1fractal::init(const uint64_t &first_event_block_height)
             row.average_respect = ability.avg_respect;
         });
     }
+
+    asset initial_supply = asset(0, symbol("REZPECT", 4)); // 0.0000 REZPECT
+    asset max_supply = asset(10000000000, symbol("REZPECT", 4)); // 10 000 000.0000 REZPECT
+    name issuer = "zeos1fractal"_n;
+
+    stats statstable(_self, initial_supply.symbol.code().raw());
+
+    auto stat_itr = statstable.find(initial_supply.symbol.code().raw());
+    check(stat_itr == statstable.end(), "Token with symbol already initialized in stats table");
+
+    statstable.emplace(_self, [&](auto &row) {
+        row.supply = initial_supply;
+        row.max_supply = max_supply;
+        row.issuer = issuer;
+    });
 }
 
 void zeos1fractal::init2()
@@ -634,6 +649,30 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
                 row.recent_respect.pop_back();
             });
             respect_receivers.insert({mem_itr->user, respect_amount});
+
+            struct asset respect_token = { int64_t(respect_amount * 10000), symbol("REZPECT", 4) };
+
+            accounts to_acnts(_self, mem_itr->user.value);
+            auto to = to_acnts.find(respect_token.symbol.code().raw());
+            if (to == to_acnts.end()) 
+            {
+                to_acnts.emplace(_self, [&](auto& a) { a.balance = respect_token; });
+            }
+            else 
+            {
+                to_acnts.modify(to, _self, [&](auto& a) { a.balance += respect_token; });
+            }
+
+            auto sym = respect_token.symbol;
+
+            stats statstable(_self, sym.code().raw());
+            auto existing = statstable.find(sym.code().raw());
+            check(existing != statstable.end(), "token with symbol does not exist, create token before issue");
+            const auto& st = *existing;
+
+            check(respect_token.amount <= st.max_supply.amount - st.supply.amount, "quantity exceeds available supply");
+
+            statstable.modify(st, _self, [&](auto& s) { s.supply += respect_token; });
         
             ++rankIndex;  // Move to next rank.
         }
