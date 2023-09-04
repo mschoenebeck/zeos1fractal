@@ -24,6 +24,11 @@ void zeos1fractal::init(const uint64_t &first_event_block_height)
     }, _self);
 
     abilities_t abilities(_self, _self.value);
+    auto abilities_itr = abilities.begin();
+    while(abilities_itr != abilities.end())
+    {
+        abilities_itr = abilities.erase(abilities_itr);
+    }
 
     // Define a struct inside the action for better readability
     struct ability_info {
@@ -39,7 +44,7 @@ void zeos1fractal::init(const uint64_t &first_event_block_height)
     };
 
     // Add initial abilities to the table
-    for (const auto& ability : initial_abilities) 
+    for (const auto& ability : initial_abilities)
     {
         abilities.emplace(_self, [&](auto &row) {
             row.name = ability.ability_name;
@@ -48,11 +53,10 @@ void zeos1fractal::init(const uint64_t &first_event_block_height)
         });
     }
 
-    asset initial_supply = asset(0, symbol("REZPECT", 4)); // 0.0000 REZPECT
-    asset max_supply = asset(10000000000, symbol("REZPECT", 4)); // 10 000 000.0000 REZPECT
-    name issuer = "zeos1fractal"_n;
+    asset initial_supply = asset(0, symbol("REZPECT", 0));
+    asset max_supply = asset(asset::max_amount, symbol("REZPECT", 0));
 
-    stats statstable(_self, initial_supply.symbol.code().raw());
+    stats_t statstable(_self, initial_supply.symbol.code().raw());
 
     auto stat_itr = statstable.find(initial_supply.symbol.code().raw());
     check(stat_itr == statstable.end(), "Token with symbol already initialized in stats table");
@@ -60,7 +64,7 @@ void zeos1fractal::init(const uint64_t &first_event_block_height)
     statstable.emplace(_self, [&](auto &row) {
         row.supply = initial_supply;
         row.max_supply = max_supply;
-        row.issuer = issuer;
+        row.issuer = _self;
     });
 }
 
@@ -652,7 +656,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
 
             struct asset respect_token = { int64_t(respect_amount * 10000), symbol("REZPECT", 4) };
 
-            accounts to_acnts(_self, mem_itr->user.value);
+            accounts_t to_acnts(_self, mem_itr->user.value);
             auto to = to_acnts.find(respect_token.symbol.code().raw());
             if (to == to_acnts.end()) 
             {
@@ -665,7 +669,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
 
             auto sym = respect_token.symbol;
 
-            stats statstable(_self, sym.code().raw());
+            stats_t statstable(_self, sym.code().raw());
             auto existing = statstable.find(sym.code().raw());
             check(existing != statstable.end(), "token with symbol does not exist, create token before issue");
             const auto& st = *existing;
@@ -807,12 +811,34 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
             alphabetically_ordered_delegates.push_back(iter->delegate);
         }
 
+        struct permission_level_weight
+        {
+            permission_level permission;
+            uint16_t weight;
+        };
         vector<permission_level_weight> accounts;
         for (const auto& delegate : alphabetically_ordered_delegates)
         {
             accounts.push_back({.permission = permission_level{delegate, "active"_n}, .weight = (uint16_t)1});
         }
 
+        struct wait_weight
+        {
+            uint32_t wait_sec;
+            uint16_t weight;
+        };
+        struct key_weight
+        {
+            public_key key;
+            uint16_t weight;
+        };
+        struct authority
+        {
+            uint32_t threshold;
+            vector<key_weight> keys;
+            vector<permission_level_weight> accounts;
+            vector<wait_weight> waits;
+        };
         authority contract_authority;
         contract_authority.threshold = CONSENSUS[COUNCIL_SIZE];
         contract_authority.keys = {};

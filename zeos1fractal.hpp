@@ -147,41 +147,14 @@ public:
 
         int64_t primary_key() const { return delegate.value; }
     };
-    typedef eosio::multi_index<"delegates"_n, council> council_t;
+    typedef multi_index<"delegates"_n, council> council_t;
 
-    struct permission_level_weight
-    {
-        permission_level permission;
-        uint16_t weight;
-    };
-
-    struct wait_weight
-    {
-        uint32_t wait_sec;
-        uint16_t weight;
-    };
-
-    struct key_weight
-    {
-        public_key key;
-        uint16_t weight;
-    };
-
-    struct authority
-    {
-        uint32_t threshold;
-        std::vector<key_weight> keys;
-        std::vector<permission_level_weight> accounts;
-        std::vector<wait_weight> waits;
-    };
-
-    // Tables related to automatic msig end
     TABLE claim
     {
         extended_asset quantity;
         uint64_t primary_key() const { return quantity.quantity.symbol.code().raw(); }
     };
-    typedef eosio::multi_index<"claims"_n, claim> claim_t;
+    typedef multi_index<"claims"_n, claim> claim_t;
 
     // eosio.token tables
     TABLE account
@@ -190,7 +163,7 @@ public:
 
         uint64_t primary_key() const { return balance.symbol.code().raw(); }
     };
-    typedef eosio::multi_index<name("accounts"), account> accounts;
+    typedef multi_index<"accounts"_n, account> accounts_t;
 
     TABLE currency_stats
     {
@@ -200,7 +173,7 @@ public:
 
         uint64_t primary_key() const { return supply.symbol.code().raw(); }
     };
-    typedef eosio::multi_index<"stat"_n, currency_stats> stats;
+    typedef multi_index<"stat"_n, currency_stats> stats_t;
 
 
     zeos1fractal(name self, name code, datastream<const char *> ds);
