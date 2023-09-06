@@ -189,6 +189,7 @@ public:
     ACTION submitranks(const name& user, const uint64_t& room, const vector<name>& rankings);
     ACTION authenticate(const name& user, const uint64_t& event, const uint64_t& room);
     ACTION claimrewards(const name& user);
+    ACTION banuser(const name& user);
 
     [[eosio::on_notify("*::transfer")]]
     void assetin(name from, name to, asset quantity, string memo);

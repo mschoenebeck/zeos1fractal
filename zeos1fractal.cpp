@@ -289,6 +289,7 @@ void zeos1fractal::approve(
         auto usr = members.find(user.value);
         check(usr != members.end(), "user doesn't exist");
         check(usr->is_approved, "user is not approved");
+        check(!usr->is_banned, "user is banned");
 
         // Lookup the ability requirements for approving from the abilities table
         abilities_t abilities(_self, _self.value);
@@ -322,6 +323,7 @@ void zeos1fractal::participate(const name &user)
     auto usr = members.find(user.value);
     check(usr != members.end(), "user is not a member");
     check(usr->is_approved, "user is not approved");
+    check(!usr->is_banned, "user is banned");
 
     participants_t participants(_self, _self.value);
     auto p = participants.find(user.value);
@@ -897,4 +899,17 @@ void zeos1fractal::claimrewards(const name& user)
 
         itr = claims.erase(itr);
     }
+}
+
+void zeos1fractal::banuser(const name& user) 
+{
+    require_auth(_self);
+
+    members_t members(get_self(), get_self().value);
+    auto itr = members.find(user.value);
+    check(itr != members.end(), "User not found");
+
+    members.modify(itr, get_self(), [&](auto& row) {
+        row.is_banned = true;
+    });
 }
