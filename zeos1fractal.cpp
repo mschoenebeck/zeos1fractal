@@ -656,7 +656,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
             });
             respect_receivers.insert({mem_itr->user, respect_amount});
 
-            struct asset respect_token = { int64_t(respect_amount * 10000), symbol("REZPECT", 4) };
+            struct asset respect_token = { int64_t(respect_amount), symbol("REZPECT", 0) };
 
             accounts_t to_acnts(_self, mem_itr->user.value);
             auto to = to_acnts.find(respect_token.symbol.code().raw());
@@ -913,3 +913,18 @@ void zeos1fractal::banuser(const name& user)
         row.is_banned = true;
     });
 }
+
+/*
+void zeos1fractal::delbalance(const name& user) 
+{
+    require_auth(user);
+
+    accounts_t accounts(get_self(), user.value);
+
+    auto itr = accounts.begin();
+    while (itr != accounts.end()) 
+    {
+        itr = accounts.erase(itr);
+    }
+}
+*/
