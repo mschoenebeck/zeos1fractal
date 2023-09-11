@@ -78,7 +78,7 @@ public:
 
         uint64_t primary_key() const { return user.value; }
     };
-    typedef eosio::multi_index<"members"_n, member> members_t;
+    typedef multi_index<"members"_n, member> members_t;
 
     TABLE ability
     {
@@ -120,8 +120,7 @@ public:
         uint64_t primary_key() const { return user.value; }
         uint64_t by_secondary() const { return room; }
     };
-    typedef eosio::multi_index<"rankings"_n, ranking, 
-    indexed_by<"bysecondary"_n, const_mem_fun<ranking, uint64_t, &ranking::by_secondary>>> rankings_t;
+    typedef multi_index<"rankings"_n, ranking, indexed_by<"bysecondary"_n, const_mem_fun<ranking, uint64_t, &ranking::by_secondary>>> rankings_t;
 
     // all rewards that get distributed in the upcoming event
     TABLE reward
@@ -154,7 +153,7 @@ public:
         extended_asset quantity;
         uint64_t primary_key() const { return quantity.quantity.symbol.code().raw(); }
     };
-    typedef multi_index<"claims"_n, claim> claim_t;
+    typedef multi_index<"claims"_n, claim> claims_t;
 
     // eosio.token tables
     TABLE account

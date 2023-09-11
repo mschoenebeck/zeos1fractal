@@ -81,26 +81,41 @@ void zeos1fractal::init2()
         3,      // fib offset, I suggest to set it to 3, which produces min RESPECT of 2 and max RESPECT of 21 (that's how it is in fractally whitepaper too)
     }, _self);
 
-    abilities_t abilities(_self, _self.value);
+    rewards_t rewards(get_self(), get_self().value);
+    auto it_rw = rewards.begin();
+    while(it_rw != rewards.end())
+    {
+        it_rw = rewards.erase(it_rw);
+    }
+    claims_t claims(get_self(), get_self().value);
+    auto it_cl = claims.begin();
+    while(it_cl != claims.end())
+    {
+        it_cl = claims.erase(it_cl);
+    }
 
+    abilities_t abilities(_self, _self.value);
+    auto it_ab = abilities.begin();
+    while(it_ab != abilities.end())
+    {
+        it_ab = abilities.erase(it_ab);
+    }
     // Define a struct inside the action for better readability
     struct ability_info {
         name ability_name;
         uint64_t total_respect;
         double avg_respect;
     };
-
     // Define initial abilities
     vector<ability_info> initial_abilities = {
-        {"delegate"_n, 9, 1.58},
-        {"approver"_n, 9, 1.58}
+        {"delegate"_n, 0, 0},
+        {"approver"_n, 0, 0}
     };
-
     // Add initial abilities to the table
     for (const auto& ability : initial_abilities)
     {
-        auto it = abilities.find(ability.ability_name.value);
-        abilities.modify(it, _self, [&](auto &row) {
+        abilities.emplace(_self, [&](auto &row) {
+            row.name = ability.ability_name;
             row.total_respect = ability.total_respect;
             row.average_respect = ability.avg_respect;
         });
@@ -113,13 +128,19 @@ void zeos1fractal::init2()
         row.recent_respect = deque<uint64_t>();
         for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
     });
-    it = members.find("geztomzxguge"_n.value);
+    it = members.find("gnomegenomes"_n.value);
     members.modify(it, _self, [&](auto &row) {
         row.total_respect = 0;
         row.recent_respect = deque<uint64_t>();
         for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
     });
     it = members.find("vladislav.x"_n.value);
+    members.modify(it, _self, [&](auto &row) {
+        row.total_respect = 0;
+        row.recent_respect = deque<uint64_t>();
+        for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
+    });
+    it = members.find("awakenhorus3"_n.value);
     members.modify(it, _self, [&](auto &row) {
         row.total_respect = 0;
         row.recent_respect = deque<uint64_t>();
@@ -700,7 +721,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
 
             if (user_amount > 0)  // Only proceed if the member should get tokens.
             {
-                claim_t claimables(get_self(), it->first.value);
+                claims_t claimables(get_self(), it->first.value);
                 auto claim_itr = claimables.find(reward.quantity.quantity.symbol.code().raw());
                 if (claim_itr != claimables.end())  // If member has claimables, update them.
                 {
@@ -883,7 +904,7 @@ void zeos1fractal::claimrewards(const name& user)
 {
     require_auth(user);
 
-    claim_t claims(_self, user.value);
+    claims_t claims(_self, user.value);
     check(claims.begin() != claims.end(), "nothing to claim");
 
     for (auto itr = claims.begin(); itr != claims.end();) 
