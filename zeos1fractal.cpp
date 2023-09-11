@@ -310,6 +310,7 @@ void zeos1fractal::approve(
         auto usr = members.find(user.value);
         check(usr != members.end(), "user doesn't exist");
         check(usr->is_approved, "user is not approved");
+        check(!usr->is_banned, "user is banned");
 
         // Lookup the ability requirements for approving from the abilities table
         abilities_t abilities(_self, _self.value);
@@ -343,6 +344,7 @@ void zeos1fractal::participate(const name &user)
     auto usr = members.find(user.value);
     check(usr != members.end(), "user is not a member");
     check(usr->is_approved, "user is not approved");
+    check(!usr->is_banned, "user is banned");
 
     participants_t participants(_self, _self.value);
     auto p = participants.find(user.value);
@@ -675,7 +677,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
             });
             respect_receivers.insert({mem_itr->user, respect_amount});
 
-            struct asset respect_token = { int64_t(respect_amount * 10000), symbol("REZPECT", 4) };
+            struct asset respect_token = { int64_t(respect_amount), symbol("REZPECT", 0) };
 
             accounts_t to_acnts(_self, mem_itr->user.value);
             auto to = to_acnts.find(respect_token.symbol.code().raw());
@@ -919,3 +921,31 @@ void zeos1fractal::claimrewards(const name& user)
         itr = claims.erase(itr);
     }
 }
+
+void zeos1fractal::banuser(const name& user) 
+{
+    require_auth(_self);
+
+    members_t members(get_self(), get_self().value);
+    auto itr = members.find(user.value);
+    check(itr != members.end(), "User not found");
+
+    members.modify(itr, get_self(), [&](auto& row) {
+        row.is_banned = true;
+    });
+}
+
+/*
+void zeos1fractal::delbalance(const name& user) 
+{
+    require_auth(user);
+
+    accounts_t accounts(get_self(), user.value);
+
+    auto itr = accounts.begin();
+    while (itr != accounts.end()) 
+    {
+        itr = accounts.erase(itr);
+    }
+}
+*/
