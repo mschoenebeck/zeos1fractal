@@ -230,13 +230,19 @@ public:
     ACTION deleteall(); 
     ACTION createx(const name& issuer, const asset& maximum_supply);
     ACTION issuetoken( name owner, asset touser, asset tosupply );
+    ACTION transfer(name from, name to, asset quantity, std::string memo);
     
 
 
 
-
+/*
     [[eosio::on_notify("*::transfer")]]
     void assetin(name from, name to, asset quantity, string memo);
+*/
+
+    [[eosio::on_notify("consortiumtt::transfer")]]
+    void error(name from, name to, asset quantity, string memo);
+
 
 private:
 

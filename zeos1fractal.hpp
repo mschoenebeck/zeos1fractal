@@ -132,15 +132,6 @@ public:
     };
     typedef multi_index<"rewards"_n, reward> rewards_t;
 
-    // long term treasury which only the owner-msig has access to
-    TABLE treasury
-    {
-        extended_asset quantity;
-
-        uint64_t primary_key() const { return quantity.quantity.symbol.raw(); }
-    };
-    typedef multi_index<"treasury"_n, treasury> treasury_t;
-
     TABLE council
     {
         name delegate;
@@ -191,7 +182,6 @@ public:
     ACTION claimrewards(const name& user);
     ACTION banuser(const name& user);
     //ACTION delbalance(const name& user); 
-
 
     [[eosio::on_notify("*::transfer")]]
     void assetin(name from, name to, asset quantity, string memo);
