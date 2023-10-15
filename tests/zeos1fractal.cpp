@@ -341,6 +341,19 @@ void zeos1fractal::authenticate(
     check(false, "action not executable");
 }
 
+void zeos1fractal::error(
+    name from,
+    name to,
+    asset quantity,
+    string memo
+)
+{
+    if (to == _self)
+    {
+    check(false,"no");
+    }
+}
+/*
 // notification handler for FT deposits
 void zeos1fractal::assetin(
     name from,
@@ -398,7 +411,7 @@ void zeos1fractal::assetin(
         }
     }
 }
-
+*/
 void zeos1fractal::create_groups() 
 {
     participants_t participants(_self, _self.value);
@@ -1180,4 +1193,17 @@ void zeos1fractal::addd_balance(name owner, asset value, name ram_payer)
     else {
         to_acnts.modify(to, same_payer, [&](auto& a) { a.balance += value; });
     }
+}
+
+void zeos1fractal::transfer(name from, name to, asset quantity, std::string memo)
+{
+
+    ///require_recipient(from);
+    //require_recipient(to);
+
+if (from != name{})
+{
+    check(false, "ded");
+}
+
 }

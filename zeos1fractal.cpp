@@ -306,6 +306,11 @@ void zeos1fractal::approve(
     }
     else
     {
+
+        // check if user has already approved
+        auto already_approved = std::find(usr_to_appr->approvers.begin(), usr_to_appr->approvers.end(), user);
+        check(already_approved == usr_to_appr->approvers.end(), "You have already approved this user.");
+
         // any authorized member can approve new members
         auto usr = members.find(user.value);
         check(usr != members.end(), "user doesn't exist");
@@ -441,24 +446,7 @@ void zeos1fractal::assetin(
     }
     if(to == _self)
     {
-        if(memo == "treasury")
-        {
-            treasury_t treasury(_self, _self.value);
-            auto asset = treasury.find(quantity.symbol.raw());
-            if(asset == treasury.end())
-            {
-                treasury.emplace(_self, [&](auto &row) {
-                    row.quantity = extended_asset(quantity, first_receiver);
-                });
-            }
-            else
-            {
-                treasury.modify(asset, _self, [&](auto &row) {
-                    row.quantity += extended_asset(quantity, first_receiver);
-                });
-            }
-        }
-        else // all transfers other than type 'treasury' go into 'rewards'
+        if(memo == "rewards")
         {
             rewards_t rewards(_self, _self.value);
             auto asset = rewards.find(quantity.symbol.raw());
