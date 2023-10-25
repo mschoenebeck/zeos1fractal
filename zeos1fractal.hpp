@@ -33,7 +33,7 @@ CONTRACT r4ndomnumb3r : public contract
 public:
     using contract::contract;
 
-    ACTION generate();
+    ACTION generate(const uint64_t& salt);
     using generate_action = action_wrapper<"generate"_n, &r4ndomnumb3r::generate>;
 };
 
@@ -180,7 +180,6 @@ public:
     ACTION authenticate(const name& user, const uint64_t& event, const uint64_t& room);
     ACTION claimrewards(const name& user);
     ACTION banuser(const name& user);
-    //ACTION delbalance(const name& user); 
 
     [[eosio::on_notify("*::transfer")]]
     void assetin(name from, name to, asset quantity, string memo);
@@ -234,4 +233,5 @@ private:
     void distribute_rewards(const vector<vector<name>> &ranks);
     void determine_council();
     void cleartables();
+    void delbalance(const name& user);
 };

@@ -68,6 +68,17 @@ void zeos1fractal::init(const uint64_t &first_event_block_height)
     });
 }
 
+void zeos1fractal::delbalance(const name& user) 
+{
+    accounts_t accounts(get_self(), user.value);
+
+    auto itr = accounts.begin();
+    while (itr != accounts.end()) 
+    {
+        itr = accounts.erase(itr);
+    }
+}
+
 void zeos1fractal::init2()
 {
     require_auth(_self);
@@ -128,24 +139,28 @@ void zeos1fractal::init2()
         row.recent_respect = deque<uint64_t>();
         for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
     });
+    delbalance("mschoenebeck"_n);
     it = members.find("gnomegenomes"_n.value);
     members.modify(it, _self, [&](auto &row) {
         row.total_respect = 0;
         row.recent_respect = deque<uint64_t>();
         for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
     });
+    delbalance("gnomegenomes"_n);
     it = members.find("vladislav.x"_n.value);
     members.modify(it, _self, [&](auto &row) {
         row.total_respect = 0;
         row.recent_respect = deque<uint64_t>();
         for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
     });
+    delbalance("vladislav.x"_n);
     it = members.find("awakenhorus3"_n.value);
     members.modify(it, _self, [&](auto &row) {
         row.total_respect = 0;
         row.recent_respect = deque<uint64_t>();
         for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
     });
+    delbalance("awakenhorus3"_n);
 
     cleartables();
 }
@@ -356,6 +371,9 @@ void zeos1fractal::participate(const name &user)
     check(p == participants.end(), "user is already participating");
 
     participants.emplace(_self, [&](auto &row) { row.user = user; });
+
+    r4ndomnumb3r::generate_action r4ndomnumb3r_generate("r4ndomnumb3r"_n, {_self, "owner"_n});
+    r4ndomnumb3r_generate.send(user.value);
 }
 
 void zeos1fractal::submitranks(
@@ -923,17 +941,3 @@ void zeos1fractal::banuser(const name& user)
     });
 }
 
-/*
-void zeos1fractal::delbalance(const name& user) 
-{
-    require_auth(user);
-
-    accounts_t accounts(get_self(), user.value);
-
-    auto itr = accounts.begin();
-    while (itr != accounts.end()) 
-    {
-        itr = accounts.erase(itr);
-    }
-}
-*/
