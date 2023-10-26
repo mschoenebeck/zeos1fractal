@@ -11,18 +11,11 @@
 using namespace eosio;
 using namespace std;
 
-#define COUNCIL_SIZE 3
-constexpr std::array<uint32_t, 7> CONSENSUS {
-    0, 1, 2, 2, 3, 3, 4
+constexpr array<uint32_t, 33> CONSENSUS {
+    0, 1, 2, 2, 3, 3, 4, 5, 5, 6,  7,  7,  8,  9,  9, 10, 11, 11, 12, 13, 13, 14, 15, 15, 16, 17, 17, 18, 19, 19, 20, 21, 21
+//  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32
 };
 
-
-// 6 is maxgroupsize
-constexpr std::array<double, 6> polyCoeffs {
-    1, 1.618, 2.617924, 4.235801032, 6.85352607, 11.08900518
-};
-
-// Other helpers
 auto fib(uint8_t index) -> decltype(index)
 {
     return (index <= 1) ? index : fib(index - 1) + fib(index - 2);
@@ -40,8 +33,6 @@ public:
 #define STATE_IDLE 0
 #define STATE_PARTICIPATE 1
 #define STATE_ROOMS 2
-
-#define NUM_APPROVALS_REQUIRED 5
 
 CONTRACT zeos1fractal : public contract
 {
@@ -61,6 +52,8 @@ public:
         uint64_t participate_duration;
         uint64_t rooms_duration;
         uint8_t fib_offset;
+        uint8_t council_size;
+        uint8_t num_approvals_required;
     };
     singleton<"global"_n, global> _global;
 
@@ -89,7 +82,6 @@ public:
         uint64_t primary_key() const { return name.value; }
     };
     typedef multi_index<"abilities"_n, ability> abilities_t;
-
 
     // event table: to register users for the upcoming event during the PARTICIPATE phase
     TABLE participant
@@ -137,11 +129,12 @@ public:
 
         int64_t primary_key() const { return delegate.value; }
     };
-    typedef multi_index<"delegates"_n, council> council_t;
+    typedef multi_index<"council"_n, council> council_t;
 
     TABLE claim
     {
         extended_asset quantity;
+
         uint64_t primary_key() const { return quantity.quantity.symbol.code().raw(); }
     };
     typedef multi_index<"claims"_n, claim> claims_t;
@@ -165,14 +158,21 @@ public:
     };
     typedef multi_index<"stat"_n, currency_stats> stats_t;
 
-
     zeos1fractal(name self, name code, datastream<const char *> ds);
-
-    ACTION init(const uint64_t& first_event_block_height);
-    ACTION init2();
+    ACTION init(
+        const uint64_t& first_event_block_height,
+        const uint64_t& participate_duration,
+        const uint64_t& rooms_duration,
+        const uint8_t& fib_offset,
+        const uint8_t& council_size,
+        const uint8_t& num_approvals_required
+    );
+    ACTION reset();
     ACTION changestate();
     ACTION setevent(const uint64_t& block_height);
     ACTION setability(const name& ability_name, const uint64_t& total_respect, const double& average_respect);
+    ACTION setcouncilsz(const uint8_t& council_size);
+    ACTION setnumappreq(const uint8_t& num_approvals_required);
     ACTION signup(const name& user, const string& why, const string& about, const map<name, string>& links);
     ACTION approve(const name& user, const name& user_to_approve);
     ACTION participate(const name& user);

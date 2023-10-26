@@ -9,41 +9,45 @@ zeos1fractal::zeos1fractal(
     _global(_self, _self.value)
 {}
 
-void zeos1fractal::init(const uint64_t &first_event_block_height)
+void zeos1fractal::init(
+    const uint64_t& first_event_block_height,
+    const uint64_t& participate_duration,
+    const uint64_t& rooms_duration,
+    const uint8_t& fib_offset,
+    const uint8_t& council_size,
+    const uint8_t& num_approvals_required
+)
 {
     require_auth(_self);
     check(first_event_block_height == 0 || first_event_block_height > static_cast<uint64_t>(current_block_number()), "first event must take place in the future");
+    check(participate_duration > 0, "durations must be greater zero");
+    check(rooms_duration > 0, "durations must be greater zero");
+    check(council_size > 0, "council size must be greater zero");
+    check(council_size < CONSENSUS.size(), "council size too large");
+    check(num_approvals_required > 0, "number of approvals must be greater zero");
 
     _global.set({
         STATE_IDLE,
         0,
         first_event_block_height == 0 ? current_block_number() + 500 : first_event_block_height,
-        360,    //  3 min
-        1200,   // 10 min
-        3,      // fib offset, I suggest to set it to 3, which produces min RESPECT of 2 and max RESPECT of 21 (that's how it is in fractally whitepaper too)
+        participate_duration,
+        rooms_duration,
+        fib_offset,
+        council_size,
+        num_approvals_required
     }, _self);
 
-    abilities_t abilities(_self, _self.value);
-    auto abilities_itr = abilities.begin();
-    while(abilities_itr != abilities.end())
-    {
-        abilities_itr = abilities.erase(abilities_itr);
-    }
-
-    // Define a struct inside the action for better readability
+    // initial abilities
     struct ability_info {
         name ability_name;
         uint64_t total_respect;
         double avg_respect;
     };
-
-    // Define initial abilities
     vector<ability_info> initial_abilities = {
         {"delegate"_n, 0, 0},
         {"approver"_n, 0, 0}
     };
-
-    // Add initial abilities to the table
+    abilities_t abilities(_self, _self.value);
     for (const auto& ability : initial_abilities)
     {
         abilities.emplace(_self, [&](auto &row) {
@@ -55,12 +59,9 @@ void zeos1fractal::init(const uint64_t &first_event_block_height)
 
     asset initial_supply = asset(0, symbol("REZPECT", 0));
     asset max_supply = asset(asset::max_amount, symbol("REZPECT", 0));
-
     stats_t statstable(_self, initial_supply.symbol.code().raw());
-
     auto stat_itr = statstable.find(initial_supply.symbol.code().raw());
     check(stat_itr == statstable.end(), "Token with symbol already initialized in stats table");
-
     statstable.emplace(_self, [&](auto &row) {
         row.supply = initial_supply;
         row.max_supply = max_supply;
@@ -79,18 +80,17 @@ void zeos1fractal::delbalance(const name& user)
     }
 }
 
-void zeos1fractal::init2()
+void zeos1fractal::reset()
 {
     require_auth(_self);
+    _global.remove();
 
-    _global.set({
-        STATE_IDLE,
-        0,
-        current_block_number() + 500,
-        240,    //  2 min
-        600,    //  5 min
-        3,      // fib offset, I suggest to set it to 3, which produces min RESPECT of 2 and max RESPECT of 21 (that's how it is in fractally whitepaper too)
-    }, _self);
+    abilities_t abilities(_self, _self.value);
+    auto abilities_itr = abilities.begin();
+    while(abilities_itr != abilities.end())
+    {
+        abilities_itr = abilities.erase(abilities_itr);
+    }
 
     rewards_t rewards(get_self(), get_self().value);
     auto it_rw = rewards.begin();
@@ -98,38 +98,12 @@ void zeos1fractal::init2()
     {
         it_rw = rewards.erase(it_rw);
     }
+
     claims_t claims(get_self(), get_self().value);
     auto it_cl = claims.begin();
     while(it_cl != claims.end())
     {
         it_cl = claims.erase(it_cl);
-    }
-
-    abilities_t abilities(_self, _self.value);
-    auto it_ab = abilities.begin();
-    while(it_ab != abilities.end())
-    {
-        it_ab = abilities.erase(it_ab);
-    }
-    // Define a struct inside the action for better readability
-    struct ability_info {
-        name ability_name;
-        uint64_t total_respect;
-        double avg_respect;
-    };
-    // Define initial abilities
-    vector<ability_info> initial_abilities = {
-        {"delegate"_n, 0, 0},
-        {"approver"_n, 0, 0}
-    };
-    // Add initial abilities to the table
-    for (const auto& ability : initial_abilities)
-    {
-        abilities.emplace(_self, [&](auto &row) {
-            row.name = ability.ability_name;
-            row.total_respect = ability.total_respect;
-            row.average_respect = ability.avg_respect;
-        });
     }
 
     members_t members(_self, _self.value);
@@ -140,13 +114,6 @@ void zeos1fractal::init2()
         for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
     });
     delbalance("mschoenebeck"_n);
-    it = members.find("gnomegenomes"_n.value);
-    members.modify(it, _self, [&](auto &row) {
-        row.total_respect = 0;
-        row.recent_respect = deque<uint64_t>();
-        for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
-    });
-    delbalance("gnomegenomes"_n);
     it = members.find("vladislav.x"_n.value);
     members.modify(it, _self, [&](auto &row) {
         row.total_respect = 0;
@@ -161,6 +128,33 @@ void zeos1fractal::init2()
         for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
     });
     delbalance("awakenhorus3"_n);
+    it = members.find("kameronjames"_n.value);
+    members.modify(it, _self, [&](auto &row) {
+        row.total_respect = 0;
+        row.recent_respect = deque<uint64_t>();
+        for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
+    });
+    delbalance("kameronjames"_n);
+    it = members.find("lennyaccount"_n.value);
+    members.modify(it, _self, [&](auto &row) {
+        row.total_respect = 0;
+        row.recent_respect = deque<uint64_t>();
+        for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
+    });
+    delbalance("lennyaccount"_n);
+
+    council_t delegates(_self, _self.value);
+    auto delegate_itr = delegates.begin();
+    while(delegate_itr != delegates.end())
+    {
+        delegate_itr = delegates.erase(delegate_itr);
+    }
+
+    auto sym = symbol("REZPECT", 0);
+    stats_t statstable(_self, sym.code().raw());
+    auto existing = statstable.find(sym.code().raw());
+    const auto& st = *existing;
+    statstable.erase(st);
 
     cleartables();
 }
@@ -265,6 +259,25 @@ void zeos1fractal::setability(
     }
 }
 
+void zeos1fractal::setcouncilsz(const uint8_t& council_size)
+{
+    check(_global.exists(), "contract not initialized");
+    check(council_size > 0, "council size must be greater zero");
+    check(council_size < CONSENSUS.size(), "council size too large");
+    auto g = _global.get();
+    g.council_size = council_size;
+    _global.set(g, _self);
+}
+
+void zeos1fractal::setnumappreq(const uint8_t& num_approvals_required)
+{
+    check(_global.exists(), "contract not initialized");
+    check(num_approvals_required > 0, "number of approvals must be greater zero");
+    auto g = _global.get();
+    g.num_approvals_required = num_approvals_required;
+    _global.set(g, _self);
+}
+
 void zeos1fractal::signup(
     const name& user,
     const string& why,
@@ -299,6 +312,7 @@ void zeos1fractal::approve(
 {
     require_auth(user);
     check(_global.exists(), "contract not initialized");
+    auto g = _global.get();
     members_t members(_self, _self.value);
     auto usr_to_appr = members.find(user_to_approve.value);
     check(usr_to_appr != members.end(), "user_to_approve doesn't exist");
@@ -314,7 +328,7 @@ void zeos1fractal::approve(
     else if(user == user_to_approve)
     {
         // after enough approvals have been received, each user eventually has to approve himself
-        check(usr_to_appr->approvers.size() >= NUM_APPROVALS_REQUIRED, "not enough approvals");
+        check(usr_to_appr->approvers.size() >= g.num_approvals_required, "not enough approvals");
         members.modify(usr_to_appr, _self, [&](auto &row) {
             row.is_approved = true;
         });
@@ -697,14 +711,11 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
             }
 
             auto sym = respect_token.symbol;
-
             stats_t statstable(_self, sym.code().raw());
             auto existing = statstable.find(sym.code().raw());
             check(existing != statstable.end(), "token with symbol does not exist, create token before issue");
             const auto& st = *existing;
-
             check(respect_token.amount <= st.max_supply.amount - st.supply.amount, "quantity exceeds available supply");
-
             statstable.modify(st, _self, [&](auto& s) { s.supply += respect_token; });
         
             ++rankIndex;  // Move to next rank.
@@ -776,6 +787,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
     members_t members(get_self(), get_self().value);
     council_t council(_self, _self.value);
     abilities_t abilities(_self, _self.value);
+    auto g = _global.get();
 
     // helper struct used for sorting only in order to determine delegates (aka council members)
     struct respected_member
@@ -811,7 +823,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
     // determine delegates
     vector<name> delegates;
     int i = 0;
-    while(delegates.size() < COUNCIL_SIZE && i < respected_members.size())
+    while(delegates.size() < g.council_size && i < respected_members.size())
     {
         if(respected_members[i].total_respect   >= delegate_ability->total_respect &&
             respected_members[i].average_respect >= delegate_ability->average_respect)
@@ -820,7 +832,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
         }
         i++;
     }
-    if(delegates.size() == COUNCIL_SIZE)
+    if(delegates.size() == g.council_size)
     {
         // Clear the council table
         for (auto iterdel = council.begin(); iterdel != council.end();)
@@ -869,7 +881,7 @@ void zeos1fractal::distribute_rewards(const vector<vector<name>> &ranks)
             vector<wait_weight> waits;
         };
         authority contract_authority;
-        contract_authority.threshold = CONSENSUS[COUNCIL_SIZE];
+        contract_authority.threshold = CONSENSUS[g.council_size];
         contract_authority.keys = {};
         contract_authority.accounts = accounts;
         contract_authority.waits = {};
