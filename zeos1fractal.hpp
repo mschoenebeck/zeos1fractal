@@ -49,6 +49,7 @@ public:
         uint64_t state;
         uint64_t event_count;
         uint64_t next_event_block_height;
+        uint64_t event_interval;
         uint64_t participate_duration;
         uint64_t rooms_duration;
         uint8_t fib_offset;
@@ -161,6 +162,7 @@ public:
     zeos1fractal(name self, name code, datastream<const char *> ds);
     ACTION init(
         const uint64_t& first_event_block_height,
+        const uint64_t& event_interval,
         const uint64_t& participate_duration,
         const uint64_t& rooms_duration,
         const uint8_t& fib_offset,
@@ -170,7 +172,10 @@ public:
     ACTION reset();
     ACTION changestate();
     ACTION setevent(const uint64_t& block_height);
+    ACTION seteventint(const uint64_t& event_interval);
     ACTION setability(const name& ability_name, const uint64_t& total_respect, const double& average_respect);
+    ACTION setprtcptdur(const uint64_t& participate_duration);
+    ACTION setroomsdur(const uint64_t& rooms_duration);
     ACTION setcouncilsz(const uint8_t& council_size);
     ACTION setnumappreq(const uint8_t& num_approvals_required);
     ACTION signup(const name& user, const string& why, const string& about, const map<name, string>& links);

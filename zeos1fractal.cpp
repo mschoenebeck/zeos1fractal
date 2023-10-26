@@ -11,6 +11,7 @@ zeos1fractal::zeos1fractal(
 
 void zeos1fractal::init(
     const uint64_t& first_event_block_height,
+    const uint64_t& event_interval,
     const uint64_t& participate_duration,
     const uint64_t& rooms_duration,
     const uint8_t& fib_offset,
@@ -20,6 +21,7 @@ void zeos1fractal::init(
 {
     require_auth(_self);
     check(first_event_block_height == 0 || first_event_block_height > static_cast<uint64_t>(current_block_number()), "first event must take place in the future");
+    check(event_interval > (participate_duration + rooms_duration), "event interval must be greater than participate_duration + rooms_duration");
     check(participate_duration > 0, "durations must be greater zero");
     check(rooms_duration > 0, "durations must be greater zero");
     check(council_size > 0, "council size must be greater zero");
@@ -29,7 +31,8 @@ void zeos1fractal::init(
     _global.set({
         STATE_IDLE,
         0,
-        first_event_block_height == 0 ? current_block_number() + 500 : first_event_block_height,
+        first_event_block_height == 0 ? current_block_number() + participate_duration : first_event_block_height,
+        event_interval,
         participate_duration,
         rooms_duration,
         fib_offset,
@@ -191,7 +194,7 @@ void zeos1fractal::changestate()
             if(event_participants.size() < 3)
             {
                 g.state = STATE_IDLE;
-                g.next_event_block_height = g.next_event_block_height + 500; // add one week of blocks
+                g.next_event_block_height = g.next_event_block_height + g.event_interval;
                 cleartables();
             }
             else
@@ -205,8 +208,7 @@ void zeos1fractal::changestate()
         {
             check(cbn >= (g.next_event_block_height + g.rooms_duration), "too early to move into IDLE state");
             g.state = STATE_IDLE;
-            //g.next_event_block_height = g.next_event_block_height + 1209600; // add one week of blocks
-            g.next_event_block_height = current_block_number() + 500;
+            g.next_event_block_height = g.next_event_block_height + g.event_interval;
             g.event_count++;
 
             distribute_rewards(check_consensus());
@@ -230,18 +232,25 @@ void zeos1fractal::setevent(const uint64_t& block_height)
     _global.set(g, _self);
 }
 
+void zeos1fractal::seteventint(const uint64_t& event_interval)
+{
+    require_auth(_self);
+    check(_global.exists(), "contract not initialized");
+    auto g = _global.get();
+    check(event_interval > (g.participate_duration + g.rooms_duration), "event interval must be greater than participate_duration + rooms_duration");
+    g.event_interval = event_interval;
+    _global.set(g, _self);
+}
+
 void zeos1fractal::setability(
     const name& ability_name, 
     const uint64_t& total_respect, 
     const double& average_respect
 )
 {
-    require_auth(_self); 
-
+    require_auth(_self);
     abilities_t abilities(_self, _self.value);
-
     auto existing_ability = abilities.find(ability_name.value);
-    
     if (existing_ability != abilities.end()) 
     {
         abilities.modify(existing_ability, _self, [&](auto &row) {
@@ -259,8 +268,27 @@ void zeos1fractal::setability(
     }
 }
 
+void zeos1fractal::setprtcptdur(const uint64_t& participate_duration)
+{
+    require_auth(_self);
+    check(_global.exists(), "contract not initialized");
+    auto g = _global.get();
+    g.participate_duration = participate_duration;
+    _global.set(g, _self);
+}
+
+void zeos1fractal::setroomsdur(const uint64_t& rooms_duration)
+{
+    require_auth(_self);
+    check(_global.exists(), "contract not initialized");
+    auto g = _global.get();
+    g.rooms_duration = rooms_duration;
+    _global.set(g, _self);
+}
+
 void zeos1fractal::setcouncilsz(const uint8_t& council_size)
 {
+    require_auth(_self);
     check(_global.exists(), "contract not initialized");
     check(council_size > 0, "council size must be greater zero");
     check(council_size < CONSENSUS.size(), "council size too large");
@@ -271,6 +299,7 @@ void zeos1fractal::setcouncilsz(const uint8_t& council_size)
 
 void zeos1fractal::setnumappreq(const uint8_t& num_approvals_required)
 {
+    require_auth(_self);
     check(_global.exists(), "contract not initialized");
     check(num_approvals_required > 0, "number of approvals must be greater zero");
     auto g = _global.get();
