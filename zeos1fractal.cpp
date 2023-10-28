@@ -319,6 +319,9 @@ void zeos1fractal::signup(
     members_t members(_self, _self.value);
     auto usr = members.find(user.value);
     check(usr == members.end(), "user already signed up");
+    check(why.size() > 0, "why do you want to join?");
+    check(about.size() > 0, "tell us about yourself");
+    check(links.empty(), "links must not be empty");
 
     members.emplace(user, [&](auto &row) {
         row.user = user;
@@ -946,6 +949,55 @@ void zeos1fractal::cleartables()
     while(rank_itr != rankings.end()) 
     {
         rank_itr = rankings.erase(rank_itr);
+    }
+}
+
+void zeos1fractal::updatereward(const asset& quantity, const name& contract)
+{
+    require_auth(_self);
+    rewards_t rewards(_self, _self.value);
+    auto rew_it = rewards.find(quantity.symbol.code().raw());
+
+    if(quantity.amount > 0)
+    {
+        accounts_t accounts(contract, _self.value);
+        auto bal_it = accounts.find(quantity.symbol.code().raw());
+        check(bal_it != accounts.end(), "fractal account has no balance");
+        if(rew_it == rewards.end())
+        {
+            check(bal_it->balance.amount >= quantity.amount, "overdrawn balance");
+            rewards.emplace(_self, [&](auto& row){
+                row.quantity = extended_asset(quantity, contract);
+            });
+        }
+        else
+        {
+            check(rew_it->quantity.contract == contract, "asset contract does not match");
+            rewards.modify(rew_it, _self, [&](auto& row){
+                row.quantity.quantity += quantity;
+                check(bal_it->balance.amount >= row.quantity.quantity.amount, "overdrawn balance");
+            });
+        }
+    }
+    else if(quantity.amount < 0)
+    {
+        check(rew_it != rewards.end(), "no asset with such symbol");
+        check(rew_it->quantity.contract == contract, "asset contract does not match");
+        if(rew_it->quantity.quantity.amount + quantity.amount == 0)
+        {
+            rewards.erase(rew_it);
+        }
+        else
+        {
+            rewards.modify(rew_it, _self, [&](auto& row){
+                row.quantity.quantity += quantity;
+                check(row.quantity.quantity.amount > 0, "reward cannot be negative");
+            });
+        }
+    }
+    else
+    {
+        check(0, "quantity amount must not be zero");
     }
 }
 

@@ -183,6 +183,7 @@ public:
     ACTION participate(const name& user);
     ACTION submitranks(const name& user, const uint64_t& room, const vector<name>& rankings);
     ACTION authenticate(const name& user, const uint64_t& event, const uint64_t& room);
+    ACTION updatereward(const asset& quantity, const name& contract);
     ACTION claimrewards(const name& user);
     ACTION banuser(const name& user);
 
