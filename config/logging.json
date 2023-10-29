@@ -1,0 +1,55 @@
+{
+  "includes": [],
+  "appenders": [{
+      "name": "stderr",
+      "type": "console",
+      "args": {
+        "format": "${timestamp} ${thread_name} ${context} ${file}:${line} ${method} ${level}]  ${message}",
+        "stream": "std_error",
+        "level_colors": [{
+            "level": "debug",
+            "color": "green"
+          },{
+            "level": "warn",
+            "color": "brown"
+          },{
+            "level": "error",
+            "color": "red"
+          }
+        ],
+        "flush": true
+      },
+      "enabled": true
+    },{
+      "name": "stdout",
+      "type": "console",
+      "args": {
+        "format": "${message}",
+        "stream": "std_out",
+        "level_colors": [{
+            "level": "debug",
+            "color": "green"
+          },{
+            "level": "warn",
+            "color": "brown"
+          },{
+            "level": "error",
+            "color": "red"
+          }
+        ],
+        "flush": true
+      },
+      "enabled": true
+    }
+  ],
+  "loggers": [{
+      "name": "default",
+      "level": "info",
+      "enabled": true,
+      "additivity": false,
+      "appenders": [
+        "stderr"
+      ]
+    }
+  ]
+}
