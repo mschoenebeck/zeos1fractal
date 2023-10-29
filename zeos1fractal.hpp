@@ -180,6 +180,7 @@ public:
     ACTION setnumappreq(const uint8_t& num_approvals_required);
     ACTION signup(const name& user, const string& why, const string& about, const map<name, string>& links);
     ACTION approve(const name& user, const name& user_to_approve);
+    ACTION deletemember(const name& user);
     ACTION participate(const name& user);
     ACTION submitranks(const name& user, const uint64_t& room, const vector<name>& rankings);
     ACTION authenticate(const name& user, const uint64_t& event, const uint64_t& room);

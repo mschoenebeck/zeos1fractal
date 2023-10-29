@@ -321,7 +321,7 @@ void zeos1fractal::signup(
     check(usr == members.end(), "user already signed up");
     check(why.size() > 0, "why do you want to join?");
     check(about.size() > 0, "tell us about yourself");
-    check(links.empty(), "links must not be empty");
+    check(!links.empty(), "links must not be empty");
 
     members.emplace(user, [&](auto &row) {
         row.user = user;
@@ -397,6 +397,16 @@ void zeos1fractal::approve(
             row.approvers.push_back(user);
         });
     }
+}
+
+void zeos1fractal::deletemember(const name& user)
+{
+    require_auth(_self);
+    check(_global.exists(), "contract not initialized");
+    members_t members(_self, _self.value);
+    auto usr = members.find(user.value);
+    check(usr != members.end(), "user is not a member");
+    members.erase(usr);
 }
 
 void zeos1fractal::participate(const name &user)
