@@ -60,4 +60,11 @@ $CLEOS system buyram eosio dummyaccount "100.0000 EOS" -p eosio@active
 $CLEOS system buyram eosio aliceaccount "100.0000 EOS" -p eosio@active
 $CLEOS push action zeos1fractal signup '[ "dummyaccount", "I want to be part of the fractal!", "I am a dummy user", [ { "first": "github", "second": "dummyuser" }, { "first": "telegram", "second": "@dummy" } ] ]' -p dummyaccount@active
 # this test should fail because of empty links map
-$CLEOS push action zeos1fractal signup '[ "aliceaccount", "test", "I am alice", [] ]' -p aliceaccount@active
+# TODO: create macro for failed tests
+#$CLEOS push action zeos1fractal signup '[ "aliceaccount", "test", "I am alice", [] ]' -p aliceaccount@active
+
+echo "run tests for 'updatereward'"
+$CLEOS push action zeos1fractal updatereward '[ "1000.0000 EOS", "eosio.token" ]' -p zeos1fractal@active
+$CLEOS get table zeos1fractal zeos1fractal rewards
+$CLEOS push action zeos1fractal updatereward '[ "-500.0000 EOS", "eosio.token" ]' -p zeos1fractal@active
+$CLEOS get table zeos1fractal zeos1fractal rewards

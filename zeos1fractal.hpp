@@ -120,7 +120,7 @@ public:
     {
         extended_asset quantity;
 
-        uint64_t primary_key() const { return quantity.quantity.symbol.raw(); }
+        uint64_t primary_key() const { return quantity.quantity.symbol.code().raw(); }
     };
     typedef multi_index<"rewards"_n, reward> rewards_t;
 
