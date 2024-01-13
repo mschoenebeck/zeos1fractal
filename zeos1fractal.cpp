@@ -16,7 +16,8 @@ void zeos1fractal::init(
     const uint64_t& rooms_duration,
     const uint8_t& fib_offset,
     const uint8_t& council_size,
-    const uint8_t& num_approvals_required
+    const uint8_t& num_approvals_required,
+    const uint8_t& min_num_participants
 )
 {
     require_auth(_self);
@@ -27,6 +28,7 @@ void zeos1fractal::init(
     check(council_size > 0, "council size must be greater zero");
     check(council_size < CONSENSUS.size(), "council size too large");
     check(num_approvals_required > 0, "number of approvals must be greater zero");
+    check(min_num_participants > 0, "minimum number of participants must be greater zero");
 
     _global.set({
         STATE_IDLE,
@@ -124,27 +126,27 @@ void zeos1fractal::reset()
         for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
     });
     delbalance("vladislav.x"_n);
-    it = members.find("awakenhorus3"_n.value);
-    members.modify(it, _self, [&](auto &row) {
-        row.total_respect = 0;
-        row.recent_respect = deque<uint64_t>();
-        for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
-    });
-    delbalance("awakenhorus3"_n);
-    it = members.find("kameronjames"_n.value);
-    members.modify(it, _self, [&](auto &row) {
-        row.total_respect = 0;
-        row.recent_respect = deque<uint64_t>();
-        for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
-    });
-    delbalance("kameronjames"_n);
-    it = members.find("lennyaccount"_n.value);
-    members.modify(it, _self, [&](auto &row) {
-        row.total_respect = 0;
-        row.recent_respect = deque<uint64_t>();
-        for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
-    });
-    delbalance("lennyaccount"_n);
+    //it = members.find("awakenhorus3"_n.value);
+    //members.modify(it, _self, [&](auto &row) {
+    //    row.total_respect = 0;
+    //    row.recent_respect = deque<uint64_t>();
+    //    for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
+    //});
+    //delbalance("awakenhorus3"_n);
+    //it = members.find("kameronjames"_n.value);
+    //members.modify(it, _self, [&](auto &row) {
+    //    row.total_respect = 0;
+    //    row.recent_respect = deque<uint64_t>();
+    //    for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
+    //});
+    //delbalance("kameronjames"_n);
+    //it = members.find("lennyaccount"_n.value);
+    //members.modify(it, _self, [&](auto &row) {
+    //    row.total_respect = 0;
+    //    row.recent_respect = deque<uint64_t>();
+    //    for(int i = 0; i < 12; i++) row.recent_respect.push_back(0);
+    //});
+    //delbalance("lennyaccount"_n);
 
     council_t delegates(_self, _self.value);
     auto delegate_itr = delegates.begin();
@@ -191,7 +193,7 @@ void zeos1fractal::changestate()
             {
                 event_participants.push_back(participant.user);
             }
-            if(event_participants.size() < 3)
+            if(event_participants.size() < g.min_num_participants)
             {
                 g.state = STATE_IDLE;
                 g.next_event_block_height = g.next_event_block_height + g.event_interval;
@@ -307,6 +309,16 @@ void zeos1fractal::setnumappreq(const uint8_t& num_approvals_required)
     _global.set(g, _self);
 }
 
+void zeos1fractal::setminnumprt(const uint8_t& min_num_participants)
+{
+    require_auth(_self);
+    check(_global.exists(), "contract not initialized");
+    check(min_num_participants > 0, "minimum number of participants must be greater zero");
+    auto g = _global.get();
+    g.min_num_participants = min_num_participants;
+    _global.set(g, _self);
+}
+
 void zeos1fractal::signup(
     const name& user,
     const string& why,
@@ -319,9 +331,9 @@ void zeos1fractal::signup(
     members_t members(_self, _self.value);
     auto usr = members.find(user.value);
     check(usr == members.end(), "user already signed up");
-    check(why.size() > 0, "why do you want to join?");
-    check(about.size() > 0, "tell us about yourself");
-    check(!links.empty(), "links must not be empty");
+    //check(why.size() > 0, "why do you want to join?");
+    //check(about.size() > 0, "tell us about yourself");
+    //check(!links.empty(), "links must not be empty");
 
     members.emplace(user, [&](auto &row) {
         row.user = user;
@@ -455,7 +467,7 @@ void zeos1fractal::submitranks(
 
     check(exists, "Your account name not found in group");
     check(rankings.size() == room_iter.users.size(), "Rankings size must match the number of users in the group.");
-    check(rankings.size() >= 3, "too small group");
+    check(rankings.size() >= 1, "too small group");
     check(rankings.size() <= 6, "too big group");
 
     // Check if all the accounts in the rankings are part of the room
@@ -556,7 +568,9 @@ void zeos1fractal::create_groups(vector<name>& participants)
     // First part: hardcoded groups up to 20
     if (num_participants <= 20)
     {
-        if (num_participants == 3) group_sizes = {3};
+        if (num_participants == 1) group_sizes = {1};
+        else if (num_participants == 2) group_sizes = {2};
+        else if (num_participants == 3) group_sizes = {3};
         else if (num_participants == 4) group_sizes = {4};
         else if (num_participants == 5) group_sizes = {5};
         else if (num_participants == 6) group_sizes = {6};

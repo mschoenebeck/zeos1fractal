@@ -55,6 +55,7 @@ public:
         uint8_t fib_offset;
         uint8_t council_size;
         uint8_t num_approvals_required;
+        uint8_t min_num_participants;
     };
     singleton<"global"_n, global> _global;
 
@@ -167,7 +168,8 @@ public:
         const uint64_t& rooms_duration,
         const uint8_t& fib_offset,
         const uint8_t& council_size,
-        const uint8_t& num_approvals_required
+        const uint8_t& num_approvals_required,
+        const uint8_t& min_num_participants
     );
     ACTION reset();
     ACTION changestate();
@@ -178,6 +180,7 @@ public:
     ACTION setroomsdur(const uint64_t& rooms_duration);
     ACTION setcouncilsz(const uint8_t& council_size);
     ACTION setnumappreq(const uint8_t& num_approvals_required);
+    ACTION setminnumprt(const uint8_t& min_num_participants);
     ACTION signup(const name& user, const string& why, const string& about, const map<name, string>& links);
     ACTION approve(const name& user, const name& user_to_approve);
     ACTION deletemember(const name& user);
