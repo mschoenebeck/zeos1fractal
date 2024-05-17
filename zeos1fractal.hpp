@@ -160,6 +160,12 @@ public:
     };
     typedef multi_index<"stat"_n, currency_stats> stats_t;
 
+    TABLE respectrew 
+    {
+    asset quantity;
+    };
+    typedef singleton<"respectrew"_n, respectrew> _respectrew;
+
     zeos1fractal(name self, name code, datastream<const char *> ds);
     ACTION init(
         const uint64_t& first_event_block_height,
@@ -190,6 +196,10 @@ public:
     ACTION updatereward(const asset& quantity, const name& contract);
     ACTION claimrewards(const name& user);
     ACTION banuser(const name& user);
+    ACTION transfer(const name& from, const name& to, const asset& quantity, const string& memo);
+    ACTION issue(const name& to, const asset& quantity, const string& memo);
+    ACTION create(const name& issuer, const asset& maximum_supply);
+    ACTION setrespect(const asset& quantity);
 
     [[eosio::on_notify("*::transfer")]]
     void assetin(name from, name to, asset quantity, string memo);
@@ -244,4 +254,7 @@ private:
     void determine_council();
     void cleartables();
     void delbalance(const name& user);
+    void add_balance(const name& owner, const asset& value, const name& ram_payer);
+    void sub_balance(const name& owner, const asset& value);
+    void add_respect_rewards();
 };
